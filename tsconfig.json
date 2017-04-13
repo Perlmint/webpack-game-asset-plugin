@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "target": "es5",
+        "rootDir": "src",
+        "outDir": "dist",
+        "removeComments": false,
+        "noImplicitAny": true,
+        "sourceMap": true,
+        "declaration": true,
+        "baseUrl": "typings",
+        "typeRoots": ["typings"]
+    },
+    "include": [
+        "src/**/*"
+    ]
+}
