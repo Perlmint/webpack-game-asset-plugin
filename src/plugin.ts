@@ -5,7 +5,7 @@ import * as bb from "bluebird";
 import * as _ from "lodash";
 import { lookup } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
-import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath } from "./util";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType } from "./option";
 import { processImages } from "./processImages";
 
@@ -36,8 +36,14 @@ export default class GameAssetPlugin implements wp.Plugin {
     }
 
     private afterEmit(compilation: wp.Compilation, callback: (err?: Error) => void) {
+        debug(`added ${this.newFileDependencies.length} file dependencies`);
+        this.newFileDependencies = this.newFileDependencies.map(p => localJoinPath(this.context, p));
+        debug(this.newFileDependencies[0]);
         compilation.fileDependencies.push(...this.newFileDependencies);
         this.fileDependencies.push(...this.newFileDependencies);
+        debug(compilation.fileDependencies.length);
+        debug(`added ${this.newContextDependencies.length} context dependencies`);
+        this.newContextDependencies = this.newContextDependencies.map(p => localJoinPath(this.context, p));
         compilation.contextDependencies.push(...this.newContextDependencies);
         this.contextDependencies.push(...this.newContextDependencies);
         this.newContextDependencies = [];
@@ -47,11 +53,11 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     apply(compiler: wp.Compiler) {
         this.context = compiler.options.context;
-        if (this.option.atlasMapFile) {
+        if (this.option.atlasMapFile && this.option.makeAtlas) {
             this.newFileDependencies.push(this.option.atlasMapFile);
         }
         compiler.plugin("emit", this.emit.bind(this, compiler));
-        compiler.plugin("afet-emit", this.afterEmit.bind(this));
+        compiler.plugin("after-emit", this.afterEmit.bind(this));
     }
 
     private processAssets(compilation: wp.Compilation, fileByType: FilesByType) {
