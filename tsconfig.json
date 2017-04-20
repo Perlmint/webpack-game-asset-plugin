@@ -4,12 +4,12 @@
         "target": "es5",
         "rootDir": "src",
         "outDir": "dist",
+        "allowJs": false,
         "removeComments": false,
         "noImplicitAny": true,
         "sourceMap": true,
         "declaration": true,
-        "baseUrl": "typings",
-        "typeRoots": ["typings"]
+        "baseUrl": "local_types"
     },
     "include": [
         "src/**/*"

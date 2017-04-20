@@ -3,124 +3,107 @@ import * as nsg from "node-sprite-generator";
 import * as _glob from "glob";
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import * as mt from "mime-types";
-import { createWriteStream, stat, readFile } from "fs";
-import { isAbsolute, parse as parsePath, posix } from "path";
-const readFileAsync = bb.promisify(readFile);
-const statAsync = bb.promisify(stat);
-const relativePath = posix.relative;
-const formatPath = posix.format;
-const joinPath = posix.join;
-const normalizePath = posix.normalize;
+import { lookup } from "mime-types";
+import { v4 as uuidV4 } from "uuid";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath } from "./util";
+import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType } from "./option";
+import { processImages } from "./processImages";
 
 const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 
-function debug(text: string) {
-    console.log("[webpack-game-asset-plugin] " + text);
-}
-
-interface File {
-    name: string;
-    ext: string;
-    outFile: string;
-    srcFile: string;
-};
-type FilesByType = {[key: string]: {[key: string]: File}};
-
-export interface GameAssetPluginOption {
-    makeAtlas?: boolean;
-    assetRoots: (string | [string, string])[];
-    excludes?: string[];
-    listOut: string;
-};
-
 export default class GameAssetPlugin implements wp.Plugin {
-    private option: GameAssetPluginOption;
+    private option: InternalOption;
+    private context: string;
     private fileDependencies: string[] = [];
     private newFileDependencies: string[] = [];
     private contextDependencies: string[] = [];
     private newContextDependencies: string[] = [];
 
     constructor(option: GameAssetPluginOption) {
-        this.option = option;
+        this.option = publicOptionToprivate(option);
     }
 
-    private emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: () => void) {
+    private emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void) {
         this.collectFiles()
             .then(files => this.classifyFiles(files))
-            .then(fileByType => this.processAssets(compilation, fileByType)
-                  .then(() => this.generateList(compilation, fileByType)))
-            .then(callback);
+            .then(fileByType => this.processAssets(compilation, fileByType))
+            .then(fileByType => this.generateList(compilation, fileByType))
+            .then(() => callback())
+            .catch(e => {
+                debug("Error occured while emitting");
+                callback(e);
+            });
     }
 
-    private afterEmit(compilation: wp.Compilation, callback: () => void) {
+    private afterEmit(compilation: wp.Compilation, callback: (err?: Error) => void) {
         compilation.fileDependencies.push(...this.newFileDependencies);
         this.fileDependencies.push(...this.newFileDependencies);
         compilation.contextDependencies.push(...this.newContextDependencies);
         this.contextDependencies.push(...this.newContextDependencies);
         this.newContextDependencies = [];
         this.newFileDependencies = [];
+        callback();
     }
 
     apply(compiler: wp.Compiler) {
+        this.context = compiler.options.context;
+        if (this.option.atlasMapFile) {
+            this.newFileDependencies.push(this.option.atlasMapFile);
+        }
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("afet-emit", this.afterEmit.bind(this));
     }
 
     private processAssets(compilation: wp.Compilation, fileByType: FilesByType) {
         debug("begin process assets");
-        if (this.option.makeAtlas === true) {
-            return new bb((resolve, reject) => {
-                nsg({
-                    src: _.map(fileByType["image"], file => file.srcFile)
-                }, e => {
-                    if (e == null) {
-                        resolve();
-                    } else {
-                        reject(e);
+        return processImages(this.option, compilation, fileByType).then(
+            filesToCopy => bb.map(
+                _.flatten(
+                    _.map(
+                        filesToCopy,
+                        byType => _.values(byType)
+                    )
+                ),
+                file => readFileAsync(file.srcFile).then(
+                    content => {
+                        (typeof file.outFile === "string" ? [file.outFile] : file.outFile).map(
+                            outFile => compilation.assets[outFile] = {
+                                size: () => content.length,
+                                source: () => content
+                            }
+                        );
                     }
-                });
-            });
-        } else {
-            return bb.map(_.flatten(_.map(fileByType, byType => _.values(byType))), file => readFileAsync(file.srcFile).then(content => {
-                compilation.assets[file.outFile] = {
-                    size: () => content.length,
-                    source: () => content
-                };
-            }));
-        }
+                )
+            )
+        ).then(
+            () => fileByType
+        );
     }
 
     private generateList(compilation: wp.Compilation, fileByType: FilesByType) {
         debug("begin generate list");
-        return new bb(resolve => {
-            const listData = JSON.stringify(
-                _.fromPairs(
-                    _.map(
-                        fileByType,
-                        (a, ak) => [
-                            ak,
-                            _.fromPairs(_.map(a, (v, k) => [k, v.outFile]))
-                        ]
-                    )
+        const listData = JSON.stringify(
+            _.fromPairs(
+                _.map(
+                    fileByType,
+                    (a, ak) => [
+                        ak,
+                        _.fromPairs(_.map(a, (v, k) => [k, v.outFile]))
+                    ]
                 )
-            );
-            compilation.assets[this.option.listOut] = {
-                size: () => listData.length,
-                source: () => listData,
-            };
-            resolve();
-        });
+            )
+        );
+        compilation.assets[this.option.listOut] = {
+            size: () => listData.length,
+            source: () => listData,
+        };
+        return bb.resolve();
     }
 
     private collectFiles() {
+        debug("collect assets");
         return bb.map(this.option.assetRoots, root => {
-            let srcRoot: string, outRoot: string;
-            if (Array.isArray(root)) {
-                [srcRoot, outRoot] = root;
-            } else {
-                [srcRoot, outRoot] = [root, root];
-            }
+            const { src: srcRoot, out: outRoot } = root;
             return glob(srcRoot + "/**/*", {
                 ignore: this.option.excludes
             }).then(
@@ -131,7 +114,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                 })
             );
         }).then(filesByRoot => _.flatten(
-            filesByRoot.map(
+            _.map(filesByRoot,
                 val => val.items.map<File>(
                     file => {
                         file = normalizePath(file);
@@ -149,7 +132,8 @@ export default class GameAssetPlugin implements wp.Plugin {
         ));
     }
 
-    private classifyFiles(files: File[]) {
+    private classifyFiles(files: File[]): bb<FilesByType> {
+        debug("classify collected files by mime-type");
         return bb.map(
             files,
             file => statAsync(file.srcFile)
@@ -164,7 +148,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                         };
                     }
 
-                    const mime = mt.lookup(file.ext);
+                    const mime = lookup(file.ext);
                     if (mime === false) {
                         return;
                     }

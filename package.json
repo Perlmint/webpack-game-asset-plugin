@@ -15,18 +15,24 @@
   "license": "MIT",
   "devDependencies": {
     "@types/bluebird": "^3.5.2",
+    "@types/debug": "0.0.29",
     "@types/file-type": "0.0.2",
     "@types/glob": "^5.0.30",
     "@types/lodash": "^4.14.62",
+    "@types/mime-types": "^2.1.0",
+    "@types/node-sprite-generator": "^0.10.0",
+    "@types/tmp": "0.0.32",
     "@types/webpack": "^2.2.12",
     "typescript": "^2.2.1"
   },
   "dependencies": {
     "bluebird": "^3.5.0",
+    "debug": "^2.6.3",
     "file-type": "^4.1.0",
     "glob": "^7.1.1",
     "lodash": "^4.17.4",
     "mime-types": "^2.1.15",
-    "node-sprite-generator": "^0.10.2"
+    "node-sprite-generator": "^0.10.2",
+    "tmp": "0.0.31"
   }
 }
