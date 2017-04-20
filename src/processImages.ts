@@ -6,8 +6,8 @@ import { InternalOption, FilesByType, File } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 
-export function processImages(option: InternalOption, compilation: wp.Compilation, fileByType: FilesByType) {
-    if (this.option.makeAtlas === false) {
+export function processImages(context: string, option: InternalOption, compilation: wp.Compilation, fileByType: FilesByType) {
+    if (option.makeAtlas === false) {
         debug("copy images");
         return bb.resolve(fileByType);
     }
@@ -46,15 +46,15 @@ export function processImages(option: InternalOption, compilation: wp.Compilatio
     ).then(sources => bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
         try {
             const [atlas, info] = [".png", ".json"].map(postfix => tmpFile({
-                dir: localJoinPath(this.context, "tmp"),
+                dir: localJoinPath(context, "tmp"),
                 postfix,
                 discardDescriptor: true
             }));
-            const imgSrcs = _.fromPairs(source.map(src => [localJoinPath(this.context, src[1].srcFile), src[0]]));
+            const imgSrcs = _.fromPairs(source.map(src => [localJoinPath(context, src[1].srcFile), src[0]]));
 
             nsg({
                 src: _.keys(imgSrcs),
-                compositor: this.option.compositor,
+                compositor: option.compositor,
                 layout: "packed",
                 spritePath: atlas.name,
                 stylesheetPath: info.name,

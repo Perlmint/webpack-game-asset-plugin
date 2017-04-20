@@ -56,7 +56,7 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     private processAssets(compilation: wp.Compilation, fileByType: FilesByType) {
         debug("begin process assets");
-        return processImages(this.option, compilation, fileByType).then(
+        return processImages(this.context, this.option, compilation, fileByType).then(
             filesToCopy => bb.map(
                 _.flatten(
                     _.map(
