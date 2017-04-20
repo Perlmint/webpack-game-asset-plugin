@@ -3,3 +3,8 @@ src
 *~
 *.log
 typings
+tslint.json
+tsconfig.json
+.editorconfig
+.npmignore
+*.tgz
