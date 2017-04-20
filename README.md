@@ -1,3 +1,7 @@
+[![npm version](https://badge.fury.io/js/webpack-game-asset-plugin.svg)](https://badge.fury.io/js/webpack-game-asset-plugin)
+[![dependencies Status](https://david-dm.org/perlmint/webpack-game-asset-plugin/status.svg)](https://david-dm.org/perlmint/webpack-game-asset-plugin)
+[![devDependencies Status](https://david-dm.org/perlmint/webpack-game-asset-plugin/dev-status.svg)](https://david-dm.org/perlmint/webpack-game-asset-plugin?type=dev)
+
 # webpack-game-asset-plugin
 webpack plugin for HTML5 game asset
 
