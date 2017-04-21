@@ -46,7 +46,6 @@ export function processImages(context: string, option: InternalOption, compilati
     ).then(sources => bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
         try {
             const [atlas, info] = [".png", ".json"].map(postfix => tmpFile({
-                dir: localJoinPath(context, "tmp"),
                 postfix,
                 discardDescriptor: true
             }));
