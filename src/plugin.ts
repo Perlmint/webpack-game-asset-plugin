@@ -18,9 +18,12 @@ export default class GameAssetPlugin implements wp.Plugin {
     private newFileDependencies: string[] = [];
     private contextDependencies: string[] = [];
     private newContextDependencies: string[] = [];
+    private startTime: number;
+    private prevTimestamps: {[key: string]: number} = {};
 
     constructor(option: GameAssetPluginOption) {
         this.option = publicOptionToprivate(option);
+        this.startTime = Date.now();
     }
 
     private emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void) {
@@ -48,6 +51,8 @@ export default class GameAssetPlugin implements wp.Plugin {
         this.contextDependencies.push(...this.newContextDependencies);
         this.newContextDependencies = [];
         this.newFileDependencies = [];
+
+        this.prevTimestamps = compilation.fileTimestamps;
         callback();
     }
 
@@ -136,6 +141,16 @@ export default class GameAssetPlugin implements wp.Plugin {
                 )
             )
         ));
+    }
+
+    private filterChanged(compilation: wp.Compilation, files: File[]) {
+        const changedOrAdded = _.keys(compilation.fileTimestamps).filter(file => {
+            if (!_.includes(this.fileDependencies, file)) {
+                return false;
+            }
+
+            return (this.prevTimestamps[file] || this.startTime) < (compilation.fileTimestamps[file] || Infinity);
+        });
     }
 
     private classifyFiles(files: File[]): bb<FilesByType> {

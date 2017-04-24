@@ -57,7 +57,10 @@ export function processImages(context: string, option: InternalOption, compilati
                 layout: "packed",
                 spritePath: atlas.name,
                 stylesheetPath: info.name,
-                stylesheet: (layout: NodeSpriteGenerator.Layout, stylesheetPath: string, spritePath: string, options: NodeSpriteGenerator.Option, callback: (error: Error) => void) => stylesheet(outName + ".png", imgSrcs, layout, stylesheetPath, spritePath, options, callback)
+                stylesheet: (layout: NodeSpriteGenerator.Layout, stylesheetPath: string, spritePath: string, options: NodeSpriteGenerator.Option, callback: (error: Error) => void) => stylesheet(outName + ".png", imgSrcs, layout, stylesheetPath, spritePath, options, callback),
+                layoutOptions: {
+                    padding: option.atlasOption.padding || 0
+                }
             }, e => {
                 if (e == null) {
                     bb.all(

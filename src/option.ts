@@ -29,6 +29,7 @@ export interface GameAssetPluginOption {
     excludes?: string[];
     listOut: string;
     compositor?: nsg.Compositor;
+    padding?: number;
 };
 
 export interface InternalOption {
@@ -42,6 +43,9 @@ export interface InternalOption {
     excludes: string[];
     listOut: string;
     compositor?: nsg.Compositor;
+    atlasOption: {
+        padding?: number;
+    };
 }
 
 function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
@@ -113,6 +117,9 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         }),
         excludes: pubOption.excludes || [],
         listOut: pubOption.listOut,
-        compositor: pubOption.compositor
+        compositor: pubOption.compositor,
+        atlasOption: {
+            padding: pubOption.padding
+        }
     } as InternalOption;
 };
