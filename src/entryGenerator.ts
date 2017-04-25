@@ -57,6 +57,7 @@ export interface Option {
         maximum?: number; // default not set
     };
     backgroundColor?: string; // default not set
+    themeColor?: string; // default not set
     icon?: string; // default not set
 }
 
@@ -119,6 +120,12 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     $("head style").text(css);
     $("head").append(`<script src="${prefix}${entryJS}"></script>`);
     $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\">");
+
+    if (option.themeColor) {
+        androied_manifest.theme_color = option.themeColor;
+        $("head").append(`<meta name="theme-color" content="${option.themeColor}" />`);
+    }
+
 
     return new bb<void>(resolve => {
         if (option.icon) {
