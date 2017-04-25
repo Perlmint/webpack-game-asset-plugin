@@ -64,17 +64,17 @@ export interface Option {
 export function generateEntry(prefix: string, entryJS: string, option: Option) {
     debug("Generate Entry html");
     const ret: {[key: string]: string | Buffer} = {};
-    const androied_manifest: any = {};
+    const android_manifest: any = {};
     const $ = load(template);
 
     if (option.entryName === undefined) {
         option.entryName = "index.html";
     }
-    androied_manifest.start_url = option.entryName;
+    android_manifest.start_url = option.entryName;
 
     $("title").text(option.title);
     $("head").append(`<meta name="apple-mobile-web-app-title" content="${option.title}" />`);
-    androied_manifest.name = option.title;
+    android_manifest.name = option.title;
 
     if (option.fullscreen !== false) {
         option.fullscreen = true;
@@ -82,7 +82,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     if (option.fullscreen) {
         $("head").append("<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">");
         $("head").append("<meta name=\"mobile-web-app-capable\" content=\"yes\" />");
-        androied_manifest.display = "standalone";
+        android_manifest.display = "standalone";
     }
 
     if (option.orientation === undefined) {
@@ -97,7 +97,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
             scalable: false
         };
     }
-    androied_manifest.orientation = option.orientation;
+    android_manifest.orientation = option.orientation;
     const scalableStr = option.scale.scalable ? "yes" : "no";
     let viewportString = `initial-scale=${option.scale.initial},user-scalable=${scalableStr}`;
     const orientationTarget = option.orientation === "portrait" ? "height" : "width";
@@ -115,13 +115,13 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     let css = cssTemplate;
     if (option.backgroundColor) {
         css += `body { background-color: ${option.backgroundColor} }`;
-        androied_manifest.background_color = option.backgroundColor;
+        android_manifest.background_color = option.backgroundColor;
     }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(css);
 
     if (option.themeColor) {
-        androied_manifest.theme_color = option.themeColor;
+        android_manifest.theme_color = option.themeColor;
         $("head").append(`<meta name="theme-color" content="${option.themeColor}" />`);
     }
 
@@ -164,7 +164,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                             });
                         });
                 })).then(converteds => {
-                    androied_manifest.icons = [];
+                    android_manifest.icons = [];
                     for (const converted of converteds) {
                         const [size, buffer] = converted;
                         let name: string;
@@ -174,7 +174,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                         }
                         else {
                             name = `launch-icon-${android[size]}.png`;
-                            androied_manifest.icons.push({
+                            android_manifest.icons.push({
                                 "src": prefix + name,
                                 "size": `${size}x${size}`,
                                 "type": "image/png",
@@ -192,7 +192,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
         $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
 
         ret[option.entryName] = $.html();
-        ret["android_manifest.json"] = JSON.stringify(androied_manifest);
+        ret["android_manifest.json"] = JSON.stringify(android_manifest);
 
         return ret;
     });
