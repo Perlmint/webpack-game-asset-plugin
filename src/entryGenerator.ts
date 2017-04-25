@@ -176,7 +176,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                             name = `launch-icon-${android[size]}.png`;
                             android_manifest.icons.push({
                                 "src": prefix + name,
-                                "size": `${size}x${size}`,
+                                "sizes": `${size}x${size}`,
                                 "type": "image/png",
                                 "density": android[size]
                             });
