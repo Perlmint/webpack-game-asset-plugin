@@ -2,6 +2,7 @@ import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import { readFileAsync } from "./util";
+import { Option as EntryOption } from "./entryGenerator";
 
 export interface File {
     name: string;
@@ -30,6 +31,7 @@ export interface GameAssetPluginOption {
     listOut: string;
     compositor?: nsg.Compositor;
     padding?: number;
+    entryOption: string;
 };
 
 export interface InternalOption {
@@ -46,6 +48,7 @@ export interface InternalOption {
     atlasOption: {
         padding?: number;
     };
+    entryOption(): bb<EntryOption>;
 }
 
 function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
@@ -120,6 +123,11 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         compositor: pubOption.compositor,
         atlasOption: {
             padding: pubOption.padding
-        }
+        },
+        entryOption: () => readFileAsync(
+            pubOption.entryOption
+        ).then(
+            buf => JSON.parse(buf.toString("utf-8"))
+        )
     } as InternalOption;
 };

@@ -8,12 +8,15 @@ import { v4 as uuidV4 } from "uuid";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType } from "./option";
 import { processImages } from "./processImages";
+import { generateEntry } from "./entryGenerator";
 
 const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 
 export default class GameAssetPlugin implements wp.Plugin {
     private option: InternalOption;
     private context: string;
+    private publicPath: string;
+    private entryName: string;
     private fileDependencies: string[] = [];
     private newFileDependencies: string[] = [];
     private contextDependencies: string[] = [];
@@ -31,6 +34,7 @@ export default class GameAssetPlugin implements wp.Plugin {
             .then(files => this.classifyFiles(files))
             .then(fileByType => this.processAssets(compilation, fileByType))
             .then(fileByType => this.generateList(compilation, fileByType))
+            .then(() => this.generateEntry(compilation))
             .then(() => callback())
             .catch(e => {
                 debug("Error occured while emitting");
@@ -58,6 +62,16 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     apply(compiler: wp.Compiler) {
         this.context = compiler.options.context;
+        this.publicPath = compiler.options.output.publicPath;
+        if (this.publicPath != null) {
+            if (_.last(this.publicPath) !== "/") {
+                this.publicPath += "/";
+            }
+        }
+        else {
+            this.publicPath = "";
+        }
+        this.entryName = compiler.options.output.filename;
         if (this.option.atlasMapFile && this.option.makeAtlas) {
             this.newFileDependencies.push(this.option.atlasMapFile);
         }
@@ -210,6 +224,19 @@ export default class GameAssetPlugin implements wp.Plugin {
             }
 
             return fileByType;
+        });
+    }
+
+    private generateEntry(compilation: wp.Compilation) {
+        return this.option.entryOption().then(
+            option => generateEntry(this.publicPath + this.entryName , option)
+        ).then(files => {
+            _.forEach(files, (content, name) => {
+                compilation.assets[name] = {
+                    size: () => content.length,
+                    source: () => content
+                };
+            });
         });
     }
 }
