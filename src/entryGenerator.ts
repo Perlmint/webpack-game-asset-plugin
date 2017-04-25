@@ -115,6 +115,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     let css = cssTemplate;
     if (option.backgroundColor) {
         css += `body { background-color: ${option.backgroundColor} }`;
+        androied_manifest.background_color = option.backgroundColor;
     }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(css);
