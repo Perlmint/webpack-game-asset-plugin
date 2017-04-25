@@ -153,7 +153,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                         discardDescriptor: true
                     });
                     const s = parseInt(size);
-                    icon.resize(s, s)
+                    gm(option.icon).resize(s, s)
                         .write(tmp.name, err => {
                             if (err) {
                                 reject(err);
