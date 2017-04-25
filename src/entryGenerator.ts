@@ -1,4 +1,8 @@
 import { load } from "cheerio";
+import * as gm from "gm";
+import * as bb from "bluebird";
+import * as _ from "lodash";
+import { tmpFile, readFileAsync, debug } from "./util";
 
 const template = `<!doctype html>
 <html>
@@ -53,10 +57,12 @@ export interface Option {
         maximum?: number; // default not set
     };
     backgroundColor?: string; // default not set
+    icon?: string; // default not set
 }
 
-export function generateEntry(entryJS: string, option: Option) {
-    const ret: {[key: string]: string} = {};
+export function generateEntry(prefix: string, entryJS: string, option: Option) {
+    debug("Generate Entry html");
+    const ret: {[key: string]: string | Buffer} = {};
     const androied_manifest: any = {};
     const $ = load(template);
 
@@ -111,11 +117,73 @@ export function generateEntry(entryJS: string, option: Option) {
     }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(css);
-    $("head").append(`<script src="${entryJS}"></script>`);
+    $("head").append(`<script src="${prefix}${entryJS}"></script>`);
     $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\">");
 
-    ret[option.entryName] = $.html();
-    ret["android_manifest.json"] = JSON.stringify(androied_manifest);
+    return new bb<void>(resolve => {
+        if (option.icon) {
+            debug("Generate icon");
+            const icon = gm(option.icon);
+            const android: {[key: string]: number} = {
+                "36": 0.75,
+                "48": 1.0,
+                "72": 1.5,
+                "96": 2.0,
+                "144": 3.0,
+                "192": 4.0
+            };
+            const ios: {[key: string]: string} = {
+                "180": "phone@3",
+                "120": "phone@2",
+                "167": "padpro",
+                "152": "pad"
+            };
+            const res = _.sortedUniq(_.sortBy(_.concat(_.keys(android), _.keys(ios))));
+            icon.identify((error, info) => {
+                const possible = _.filter(res, r => parseInt(r) <= info.size.width);
+                return bb.map(possible, size => new bb<[string, Buffer]>((resolve, reject) => {
+                    const tmp = tmpFile({
+                        discardDescriptor: true
+                    });
+                    const s = parseInt(size);
+                    icon.resize(s, s)
+                        .write(tmp.name, err => {
+                            if (err) {
+                                reject(err);
+                            }
+                            readFileAsync(tmp.name).then(buf => {
+                                tmp.removeCallback();
+                                resolve([size, buf]);
+                            });
+                        });
+                })).then(converteds => {
+                    androied_manifest.icons = [];
+                    for (const converted of converteds) {
+                        const [size, buffer] = converted;
+                        let name: string;
+                        if (ios[size] !== undefined) {
+                            name = `launch-icon-${ios[size]}.png`;
+                            $("head").append(`<link rel="apple-touch-icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
+                        }
+                        else {
+                            name = `launch-icon-${android[size]}.png`;
+                            androied_manifest.icons.push({
+                                "src": prefix + name,
+                                "size": `${size}x${size}`,
+                                "type": "image/png",
+                                "density": android[size]
+                            });
+                            $("head").append(`<link rel="icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
+                        }
+                        ret[name] = buffer;
+                    }
+                }).then(resolve);
+            });
+        }
+    }).then(() => {
+        ret[option.entryName] = $.html();
+        ret["android_manifest.json"] = JSON.stringify(androied_manifest);
 
-    return ret;
+        return ret;
+    });
 }

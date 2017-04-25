@@ -25,6 +25,10 @@ export default class GameAssetPlugin implements wp.Plugin {
     private prevTimestamps: {[key: string]: number} = {};
 
     constructor(option: GameAssetPluginOption) {
+        this.newFileDependencies.push(option.entryOption);
+        if (typeof option.atlasMap === "string") {
+            this.newFileDependencies.push(option.atlasMap);
+        }
         this.option = publicOptionToprivate(option);
         this.startTime = Date.now();
     }
@@ -71,10 +75,8 @@ export default class GameAssetPlugin implements wp.Plugin {
         else {
             this.publicPath = "";
         }
+        this.newFileDependencies = _.map(this.newFileDependencies, path => localJoinPath(this.context, path));
         this.entryName = compiler.options.output.filename;
-        if (this.option.atlasMapFile && this.option.makeAtlas) {
-            this.newFileDependencies.push(this.option.atlasMapFile);
-        }
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("after-emit", this.afterEmit.bind(this));
     }
@@ -229,7 +231,7 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     private generateEntry(compilation: wp.Compilation) {
         return this.option.entryOption().then(
-            option => generateEntry(this.publicPath + this.entryName , option)
+            option => generateEntry(this.publicPath, this.entryName , option)
         ).then(files => {
             _.forEach(files, (content, name) => {
                 compilation.assets[name] = {

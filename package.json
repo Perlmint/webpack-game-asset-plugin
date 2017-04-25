@@ -1,6 +1,6 @@
 {
   "name": "webpack-game-asset-plugin",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "webpack plugin for HTML5 game asset",
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
@@ -27,6 +27,7 @@
     "typescript": "^2.2.1"
   },
   "dependencies": {
+    "@types/gm": "^1.17.30",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",
     "debug": "^2.6.3",
