@@ -119,14 +119,13 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(css);
-    $("head").append(`<script src="${prefix}${entryJS}"></script>`);
-    $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\">");
 
     if (option.themeColor) {
         androied_manifest.theme_color = option.themeColor;
         $("head").append(`<meta name="theme-color" content="${option.themeColor}" />`);
     }
 
+    $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\" >");
 
     return new bb<void>(resolve => {
         if (option.icon) {
@@ -189,6 +188,9 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
             });
         }
     }).then(() => {
+        $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
+        $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
+
         ret[option.entryName] = $.html();
         ret["android_manifest.json"] = JSON.stringify(androied_manifest);
 
