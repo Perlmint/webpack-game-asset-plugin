@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>{{=it.title}}</title>
+  </head>
+  <body>
+    <div style="display:table;position:absolute;height:100%;width:100%">
+      <div style="display:table-cell;vertical-align:middle">
+        <div style="margin-left:auto;margin-right:auto;width:30%;text-align:center">
+          {{?it.image}}
+          <img src="{{=it.image}}" />
+          {{?}}
+          <div>{{=it.message}}</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

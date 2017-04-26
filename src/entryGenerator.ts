@@ -2,9 +2,18 @@ import { load } from "cheerio";
 import * as gm from "gm";
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import { join } from "path";
+import { compile } from "dot";
+import { join, extname } from "path";
 import { readFileSync } from "fs";
+import { lookup } from "mime-types";
 import { tmpFile, readFileAsync, debug } from "./util";
+
+/**
+ * @hidden
+ */
+function templateLoader(filename: string) {
+    return readFileSync(join(__dirname, "../template/", filename), "utf-8");
+}
 
 const [
     /**
@@ -15,9 +24,19 @@ const [
      * @hidden
      */
     cssTemplate
-] = ["entry.html", "default.css"].map(
-    file => readFileSync(join(__dirname, "../template/", file), "utf-8")
-);
+] = ["entry.html", "default.css"].map(templateLoader);
+const [
+    /**
+     * Offline service worker template
+     * @hidden
+     */
+    offlineJSTemplate,
+    /**
+     * Offline page template
+     * @hidden
+     */
+    offlineHTMLTemplate
+] = ["offline.js", "offline.html"].map(file => compile(templateLoader(file)));
 
 export interface Option {
     /**
@@ -107,6 +126,23 @@ export interface Option {
      * @default not set
      */
     icon?: string;
+    /**
+     * Show offline page via service worker
+     *
+     * @default not include
+     */
+    offline?: {
+        /**
+         * Message when app is offline
+         */
+        message: string;
+        /**
+         * Image show when app is offline
+         *
+         * @default not set
+         */
+        image?: string;
+    };
 }
 
 /**
@@ -241,6 +277,22 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
     }).then(() => {
         $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
         $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
+
+        if (option.offline !== undefined) {
+            $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js"); }</script>`);
+            const params: {[key: string]: string} = {
+                title: option.title,
+                prefix,
+                message: option.offline.message
+            };
+            if (option.offline.image !== undefined) {
+                const imageMime = lookup(extname(option.offline.image));
+                const imageBase64 = readFileSync(option.offline.image).toString("base64");
+                params["image"] = `data:${imageMime};base64,${imageBase64}`;
+            }
+            ret["offline.js"] = offlineJSTemplate(params);
+            ret["offline.html"] = offlineHTMLTemplate(params);
+        }
 
         ret[option.entryName] = $.html();
         ret["android_manifest.json"] = JSON.stringify(android_manifest);

@@ -28,10 +28,12 @@
     "typescript": "^2.2.1"
   },
   "dependencies": {
+    "@types/dot": "^1.1.1",
     "@types/gm": "^1.17.30",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",
     "debug": "^2.6.3",
+    "dot": "^1.1.1",
     "file-type": "^4.1.0",
     "glob": "^7.1.1",
     "lodash": "^4.17.4",
@@ -40,6 +42,6 @@
     "tmp": "0.0.31"
   },
   "optionalDependencies": {
-    "audiosprite": "^0.6.0"
+    "dot": "^1.1.1"
   }
 }
