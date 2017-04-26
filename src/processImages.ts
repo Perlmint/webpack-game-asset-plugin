@@ -9,16 +9,17 @@ import { stylesheet } from "./stylesheet";
 /**
  * @hidden
  */
-export function processImages(context: string, option: InternalOption, compilation: wp.Compilation, fileByType: FilesByType) {
+export function processImages(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, FilesByType]): bb<[FilesByType, FilesByType]> {
+    const [toCopy, assets] = files;
     if (option.makeAtlas === false) {
         debug("copy images");
-        return bb.resolve(fileByType);
+        return bb.resolve(files);
     }
 
-    const images = fileByType["image"];
-    fileByType["image"] = {};
-    const others = _.clone(fileByType);
-    fileByType["atlas"] = {};
+    const images = assets["image"];
+    toCopy["image"] = {};
+    delete assets["image"];
+    assets["atlas"] = {};
     let idx = 0;
 
     debug("generate atlas");
@@ -26,7 +27,7 @@ export function processImages(context: string, option: InternalOption, compilati
         map => {
             const excludes = _.keys(images).filter(img => _.find(map.excludes, e => _.startsWith(img, e)));
             for (const key of excludes) {
-                others["image"][key] = images[key];
+                toCopy["image"][key] = images[key];
                 delete images[key];
             }
             const sources: {[key: string]: [string, File][]} = {};
@@ -79,7 +80,7 @@ export function processImages(context: string, option: InternalOption, compilati
                                 })
                         )
                     ).then(() => {
-                        fileByType["atlas"][outName] = {
+                        assets["atlas"][outName] = {
                             ext: ".png",
                             name: outName,
                             outFile: [outName + ".png", outName + ".json"],
@@ -99,5 +100,5 @@ export function processImages(context: string, option: InternalOption, compilati
         } catch (e) {
             reject(e);
         };
-    })))).then(() => others);
+    })))).then<[FilesByType, FilesByType]>(() => [toCopy, assets]);
 }

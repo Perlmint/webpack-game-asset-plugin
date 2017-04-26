@@ -8,6 +8,7 @@ import { v4 as uuidV4 } from "uuid";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType } from "./option";
 import { processImages } from "./processImages";
+import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
 
 /**
@@ -86,11 +87,15 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     private processAssets(compilation: wp.Compilation, fileByType: FilesByType) {
         debug("begin process assets");
-        return processImages(this.context, this.option, compilation, fileByType).then(
-            filesToCopy => bb.map(
+        return processImages(
+            this.context, this.option, compilation, [fileByType, _.cloneDeep(fileByType)]
+        ).then(
+            files => processJson(this.context, this.option.mergeJson, compilation, files)
+        ).then(
+            files => bb.map(
                 _.flatten(
                     _.map(
-                        filesToCopy,
+                        files[0],
                         byType => _.values(byType)
                     )
                 ),
@@ -104,9 +109,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                         );
                     }
                 )
-            )
-        ).then(
-            () => fileByType
+            ).then(() => files[1])
         );
     }
 

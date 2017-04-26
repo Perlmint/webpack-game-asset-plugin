@@ -92,6 +92,12 @@ export interface GameAssetPluginOption {
      * @see entryGenerator.Option
      */
     entryOption: string;
+    /**
+     * Merge json files into single json file
+     *
+     * @default false
+     */
+    mergeJson?: boolean;
 };
 
 /**
@@ -112,6 +118,7 @@ export interface InternalOption {
         padding?: number;
     };
     entryOption(): bb<EntryOption>;
+    mergeJson: boolean;
 }
 
 /**
@@ -197,6 +204,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
             pubOption.entryOption
         ).then(
             buf => JSON.parse(buf.toString("utf-8"))
-        )
+        ),
+        mergeJson: pubOption.mergeJson || false
     } as InternalOption;
 };

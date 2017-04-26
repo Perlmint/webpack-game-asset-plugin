@@ -38,5 +38,8 @@
     "mime-types": "^2.1.15",
     "node-sprite-generator": "^0.10.2",
     "tmp": "0.0.31"
+  },
+  "optionalDependencies": {
+    "audiosprite": "^0.6.0"
   }
 }
