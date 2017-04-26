@@ -6,6 +6,9 @@ import { InternalOption, FilesByType, File } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 
+/**
+ * @hidden
+ */
 export function processImages(context: string, option: InternalOption, compilation: wp.Compilation, fileByType: FilesByType) {
     if (option.makeAtlas === false) {
         debug("copy images");

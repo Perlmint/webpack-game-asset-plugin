@@ -4,6 +4,9 @@ import * as _ from "lodash";
 import { readFileAsync } from "./util";
 import { Option as EntryOption } from "./entryGenerator";
 
+/**
+ * @hidden
+ */
 export interface File {
     name: string;
     ext: string;
@@ -11,29 +14,89 @@ export interface File {
     srcFile: string;
 };
 
+/**
+ * @hidden
+ */
 export type FilesByType = {[key: string]: {[key: string]: File}};
 
+/**
+ * @hidden
+ */
 export type PackType = {
     name: string;
     group: number;
 };
 
+/**
+ * @hidden
+ */
 export type AtlasMapType = {
     excludes: string[];
     pack: PackType[]
 };
 
+/**
+ * Atlas group definition
+ *
+ * - each element makes group.
+ * - each string value means prefix of image.
+ *   - e.g. asset/game/enemy/small_1.png can be involved in asset/game/enemy/small_ asset/game/enemy, asset/game, asset
+ *   - each image will be contained into most longest matched prefix.
+ * - `!` prefix means exclude from group, does not packed into atlas. It will be emitted as is.
+ */
+export type AtlasGroupDefinition = (string | string[])[];
+
 export interface GameAssetPluginOption {
+    /**
+     * whether make sprite atls
+     * @default false
+     */
     makeAtlas?: boolean;
-    atlasMap?: string | (string | string[])[];
+    /**
+     * define atlas groups
+     *
+     * when string is passed, assume it as file path which contains definition in JSON format.
+     *
+     * `AtlasGroupDefinition` is passed, just use it as is.
+     */
+    atlasMap?: string | AtlasGroupDefinition;
+    /**
+     * Roots where collect assets from
+     *
+     * single string element menas just path to collect assets.
+     * by using `[string, string]`, you can specify out directory for assets.
+     * first element should be path, second element is output directory name.
+     */
     assetRoots: (string | [string, string])[];
+    /**
+     * exclude rules for collecting assets.
+     */
     excludes?: string[];
+    /**
+     * collected list webpack output path.
+     */
     listOut: string;
+    /**
+     * compositor to used for making sprite atlas.
+     */
     compositor?: nsg.Compositor;
+    /**
+     * sprite atlas padding
+     *
+     * @default 0
+     */
     padding?: number;
+    /**
+     * Path of file containing generating entry html option
+     *
+     * @see entryGenerator.Option
+     */
     entryOption: string;
 };
 
+/**
+ * @hidden
+ */
 export interface InternalOption {
     makeAtlas: boolean;
     atlasMap: () => bb<AtlasMapType>;
@@ -51,6 +114,9 @@ export interface InternalOption {
     entryOption(): bb<EntryOption>;
 }
 
+/**
+ * @hidden
+ */
 function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
     let idx = 1;
     const indexMapped = _.reduce<string | string[], PackType[]>(map, (prev, item) => {
@@ -80,6 +146,9 @@ function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
     };
 }
 
+/**
+ * @hidden
+ */
 export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
     let atlasMapFunc: () => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
         excludes: [],

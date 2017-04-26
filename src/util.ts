@@ -7,12 +7,33 @@ export { fileSync as tmpFile, SynchrounousResult } from "tmp";
 export { createWriteStream } from "fs";
 export { isAbsolute, join as localJoinPath, parse as parsePath } from "path";
 export const [
+    /**
+     * @hidden
+     */
     readFileAsync,
+    /**
+     * @hidden
+     */
     statAsync,
+    /**
+     * @hidden
+     */
     relativePath,
+    /**
+     * @hidden
+     */
     formatPath,
+    /**
+     * @hidden
+     */
     joinPath,
+    /**
+     * @hidden
+     */
     normalizePath,
+    /**
+     * @hidden
+     */
     debug
 ] = [
     bb.promisify(readFile),

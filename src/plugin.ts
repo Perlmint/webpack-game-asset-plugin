@@ -10,6 +10,9 @@ import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, Fil
 import { processImages } from "./processImages";
 import { generateEntry } from "./entryGenerator";
 
+/**
+ * @hidden
+ */
 const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 
 export default class GameAssetPlugin implements wp.Plugin {

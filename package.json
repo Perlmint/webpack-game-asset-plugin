@@ -5,6 +5,7 @@
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
   "scripts": {
+    "build:doc": "typedoc --out docs --excludePrivate --mode file",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

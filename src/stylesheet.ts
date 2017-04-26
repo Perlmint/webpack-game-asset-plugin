@@ -2,16 +2,25 @@ import { writeFile } from "fs";
 import { normalize } from "path";
 import "node-sprite-generator";
 
+/**
+ * @hidden
+ */
 interface Size {
     w: number;
     h: number;
 }
 
+/**
+ * @hidden
+ */
 interface Rect extends Size {
     x: number;
     y: number;
 }
 
+/**
+ * @hidden
+ */
 interface IFrame {
     frame: Rect;
     rotated: boolean;
@@ -20,6 +29,9 @@ interface IFrame {
     sourceSize: Size;
 }
 
+/**
+ * @hidden
+ */
 interface ISheet {
     frames: {[key: string]: IFrame};
     meta: {
@@ -31,6 +43,9 @@ interface ISheet {
     };
 }
 
+/**
+ * @hidden
+ */
 export function stylesheet(name: string, filesMap: {[key: string]: string}, layout: NodeSpriteGenerator.Layout, stylesheetPath: string, spritePath: string, options: NodeSpriteGenerator.Option, callback: (error: Error) => void) {
     const ret: ISheet = {
         frames: {},

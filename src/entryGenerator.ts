@@ -4,6 +4,9 @@ import * as bb from "bluebird";
 import * as _ from "lodash";
 import { tmpFile, readFileAsync, debug } from "./util";
 
+/**
+ * @hidden
+ */
 const template = `<!doctype html>
 <html>
   <head>
@@ -12,6 +15,9 @@ const template = `<!doctype html>
   </head>
   <body></body>
 </html>`;
+/**
+ * @hidden
+ */
 const cssTemplate = `
 html {
   -ms-touch-action: none;
@@ -45,22 +51,98 @@ body, canvas, div {
 `;
 
 export interface Option {
+    /**
+     * Title of app
+     *
+     * It will be used in generating manifest, meta, title tag
+     * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#name
+     */
     title: string;
-    entryName?: string; // default index.html
-    fullscreen?: boolean; // default true
-    orientation?: "portrait" | "landscape"; // default portrait
-    viewport?: number | "device"; // default device, width - landscape, height - portrait, because this is for game.
+    /**
+     * File name of entry html
+     *
+     * @default index.html
+     */
+    entryName?: string;
+    /**
+     * Enable fullscreen feature by enable app-capable
+     *
+     * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#display
+     * @default true
+     */
+    fullscreen?: boolean;
+    /**
+     * Desired orientation
+     *
+     * It influence to viewport, orientation field in manifest.
+     * portrait will set viewport by height, landscape will set viewport by width
+     * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#orientation
+     * @default portrait
+     */
+    orientation?: "portrait" | "landscape";
+    /**
+     * Viewport size
+     *
+     * px or device size
+     * @ref https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag
+     * @default device
+     */
+    viewport?: number | "device";
+    /**
+     * Scalability
+     * @ref https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag
+     */
     scale?: {
-        initial?: number; // default 1
-        scalable?: boolean; // default false
-        minimum?: number; // default not set
-        maximum?: number; // default not set
+        /**
+         * Initial scale
+         *
+         * @default 1
+         */
+        initial?: number;
+        /**
+         * User scalable
+         *
+         * @default false
+         */
+        scalable?: boolean;
+        /**
+         * Minimum scale
+         *
+         * @default not set
+         */
+        minimum?: number;
+        /**
+         * Maximum scale
+         *
+         * @default not set
+         */
+        maximum?: number;
     };
-    backgroundColor?: string; // default not set
+    /**
+     * Background color
+     *
+     * @default not set - commonly it will showed as white
+     */
+    backgroundColor?: string;
+    /**
+     * Webapp theme color
+     *
+     * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#theme_color
+     * @default not set
+     */
     themeColor?: string; // default not set
-    icon?: string; // default not set
+    /**
+     * App icon
+     *
+     * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#icons
+     * @default not set
+     */
+    icon?: string;
 }
 
+/**
+ * @hidden
+ */
 export function generateEntry(prefix: string, entryJS: string, option: Option) {
     debug("Generate Entry html");
     const ret: {[key: string]: string | Buffer} = {};
