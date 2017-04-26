@@ -2,53 +2,22 @@ import { load } from "cheerio";
 import * as gm from "gm";
 import * as bb from "bluebird";
 import * as _ from "lodash";
+import { join } from "path";
+import { readFileSync } from "fs";
 import { tmpFile, readFileAsync, debug } from "./util";
 
-/**
- * @hidden
- */
-const template = `<!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title></title>
-  </head>
-  <body></body>
-</html>`;
-/**
- * @hidden
- */
-const cssTemplate = `
-html {
-  -ms-touch-action: none;
-  touch-action: none;
-}
-body {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    margin: 0;
-    cursor: default;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-}
-body, canvas, div {
-  display: block;
-  outline: none;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  -khtml-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
-}
-`;
+const [
+    /**
+     * @hidden
+     */
+    template,
+    /**
+     * @hidden
+     */
+    cssTemplate
+] = ["entry.html", "default.css"].map(
+    file => readFileSync(join(__dirname, "../template/", file), "utf-8")
+);
 
 export interface Option {
     /**
