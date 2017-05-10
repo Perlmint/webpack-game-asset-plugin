@@ -274,6 +274,9 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                 }).then(resolve);
             });
         }
+        else {
+            resolve();
+        }
     }).then(() => {
         $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
         $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
