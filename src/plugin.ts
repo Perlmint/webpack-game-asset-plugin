@@ -6,10 +6,11 @@ import * as _ from "lodash";
 import { lookup } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
-import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType } from "./option";
+import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset } from "./option";
 import { processImages } from "./processImages";
 import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
+import { processFonts } from "./processFont";
 
 /**
  * @hidden
@@ -92,6 +93,8 @@ export default class GameAssetPlugin implements wp.Plugin {
         ).then(
             files => processJson(this.context, this.option.mergeJson, compilation, files)
         ).then(
+            files => processFonts(this.context, this.option, compilation, files)
+        ).then(
             files => bb.map(
                 _.flatten(
                     _.map(
@@ -113,7 +116,7 @@ export default class GameAssetPlugin implements wp.Plugin {
         );
     }
 
-    private generateList(compilation: wp.Compilation, fileByType: FilesByType) {
+    private generateList(compilation: wp.Compilation, fileByType: Assets) {
         debug("begin generate list");
         const listData = JSON.stringify(
             _.fromPairs(
@@ -121,7 +124,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                     fileByType,
                     (a, ak) => [
                         ak,
-                        _.fromPairs(_.map(a, (v, k) => [k, v.outFile]))
+                        _.fromPairs(_.map(a, (v, k) => [k, isCustomAsset(v) ? v.args : v.outFile]))
                     ]
                 )
             )

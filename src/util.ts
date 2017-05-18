@@ -6,6 +6,7 @@ import * as _debug from "debug";
 export { fileSync as tmpFile, SynchrounousResult } from "tmp";
 export { createWriteStream } from "fs";
 export { isAbsolute, join as localJoinPath, parse as parsePath } from "path";
+import * as xml2js from "xml2js";
 export const [
     /**
      * @hidden
@@ -34,7 +35,11 @@ export const [
     /**
      * @hidden
      */
-    debug
+    debug,
+    /**
+     * @hidden
+     */
+    parseXMLString
 ] = [
     bb.promisify(readFile),
     bb.promisify(stat),
@@ -42,5 +47,6 @@ export const [
     posix.format,
     posix.join,
     posix.normalize,
-    _debug("wgap")
+    _debug("wgap"),
+    bb.promisify<any, xml2js.convertableToString>(xml2js.parseString)
 ];

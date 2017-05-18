@@ -18,6 +18,11 @@ export interface File {
  * @hidden
  */
 export type FilesByType = {[key: string]: {[key: string]: File}};
+export type CustomAsset = { args: any };
+export type Assets = {[key: string]: {[key: string]: File | CustomAsset }};
+export function isCustomAsset(asset: File | CustomAsset): asset is CustomAsset  {
+    return (<CustomAsset>asset).args !== undefined;
+}
 
 /**
  * @hidden
@@ -98,13 +103,32 @@ export interface GameAssetPluginOption {
      * @default false
      */
     mergeJson?: boolean;
+    /**
+     * Create audio sprite
+     *
+     * @default false
+     */
+    audioSprite?: boolean;
+    /**
+     * Configure file to include fonts
+     *
+     * webfonts, bitmapfont, others...
+     */
+    fonts?: string;
 };
+
+export interface WebFont {
+};
+export type LocalFont = string | string[];
+
+export type Fonts = {[key: string]: (WebFont | LocalFont)};
 
 /**
  * @hidden
  */
 export interface InternalOption {
     makeAtlas: boolean;
+    audioSprite: boolean;
     atlasMap: () => bb<AtlasMapType>;
     atlasMapFile?: string;
     assetRoots: {
@@ -119,6 +143,7 @@ export interface InternalOption {
     };
     entryOption(): bb<EntryOption>;
     mergeJson: boolean;
+    fonts: () => bb<Fonts>;
 }
 
 /**
@@ -205,6 +230,18 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         ).then(
             buf => JSON.parse(buf.toString("utf-8"))
         ),
-        mergeJson: pubOption.mergeJson || false
+        mergeJson: pubOption.mergeJson || false,
+        audioSprite: pubOption.audioSprite || false,
+        fonts: () => {
+            if (pubOption.fonts == null) {
+                return bb.resolve([]);
+            }
+
+            return readFileAsync(
+                pubOption.fonts
+            ).then(
+                buf => JSON.parse(buf.toString("utf-8"))
+            );
+        }
     } as InternalOption;
 };
