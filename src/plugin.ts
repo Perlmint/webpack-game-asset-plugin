@@ -3,7 +3,7 @@ import * as nsg from "node-sprite-generator";
 import * as _glob from "glob";
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import { lookup } from "mime-types";
+import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset } from "./option";
@@ -11,6 +11,9 @@ import { processImages } from "./processImages";
 import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
 import { processFonts } from "./processFont";
+
+// for shader
+types["frag"] = "application/shader";
 
 /**
  * @hidden
@@ -210,7 +213,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                     };
                 })
         ).then(cat_files => {
-            const groups = _.groupBy(cat_files, file => file.cat);
+            const groups = _.groupBy(_.filter(cat_files), file => file.cat);
             if (groups["dir"]) {
                 for (const file of groups["dir"]) {
                     if (!_.includes(this.contextDependencies, file.srcFile)) {
