@@ -5,6 +5,7 @@ import * as bb from "bluebird";
 import * as _ from "lodash";
 import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
+import { isAbsolute } from "path";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset } from "./option";
 import { processImages } from "./processImages";
@@ -31,14 +32,29 @@ export default class GameAssetPlugin implements wp.Plugin {
     private newContextDependencies: string[] = [];
     private startTime: number;
     private prevTimestamps: {[key: string]: number} = {};
+    private configFiles: string[] = [];
 
     constructor(option: GameAssetPluginOption) {
         this.newFileDependencies.push(option.entryOption);
+        if (option.entryOption) {
+            this.configFiles.push(option.entryOption);
+        }
         if (typeof option.atlasMap === "string") {
-            this.newFileDependencies.push(option.atlasMap);
+            this.configFiles.push(option.atlasMap);
+        }
+        if (option.fonts) {
+            this.configFiles.push(option.fonts);
         }
         this.option = publicOptionToprivate(option);
         this.startTime = Date.now();
+    }
+
+    private toAbsPath(path: string) {
+        if (isAbsolute(path)) {
+            return path;
+        }
+
+        return localJoinPath(this.context, path);
     }
 
     private emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void) {
@@ -56,13 +72,14 @@ export default class GameAssetPlugin implements wp.Plugin {
 
     private afterEmit(compilation: wp.Compilation, callback: (err?: Error) => void) {
         debug(`added ${this.newFileDependencies.length} file dependencies`);
-        this.newFileDependencies = this.newFileDependencies.map(p => localJoinPath(this.context, p));
+        this.newFileDependencies.push(...this.configFiles);
+        this.newFileDependencies = this.newFileDependencies.map(p => this.toAbsPath(p));
         debug(this.newFileDependencies[0]);
         compilation.fileDependencies.push(...this.newFileDependencies);
         this.fileDependencies.push(...this.newFileDependencies);
         debug(compilation.fileDependencies.length);
         debug(`added ${this.newContextDependencies.length} context dependencies`);
-        this.newContextDependencies = this.newContextDependencies.map(p => localJoinPath(this.context, p));
+        this.newContextDependencies = this.newContextDependencies.map(p => this.toAbsPath(p));
         compilation.contextDependencies.push(...this.newContextDependencies);
         this.contextDependencies.push(...this.newContextDependencies);
         this.newContextDependencies = [];
@@ -83,7 +100,7 @@ export default class GameAssetPlugin implements wp.Plugin {
         else {
             this.publicPath = "";
         }
-        this.newFileDependencies = _.map(this.newFileDependencies, path => localJoinPath(this.context, path));
+        this.newFileDependencies = _.map(this.newFileDependencies, path => this.toAbsPath(path));
         this.entryName = compiler.options.output.filename;
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("after-emit", this.afterEmit.bind(this));
