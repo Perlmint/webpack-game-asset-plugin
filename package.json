@@ -30,14 +30,17 @@
     "typescript": "^2.3.3"
   },
   "dependencies": {
+    "@mapbox/shelf-pack": "^3.0.0",
     "@types/dot": "^1.1.1",
     "@types/gm": "^1.17.30",
+    "bitmapfont": "git+https://github.com/Perlmint/bitmapfont.git#82a1b74",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",
     "debug": "^2.6.8",
     "dot": "^1.1.2",
     "file-type": "^4.3.0",
     "glob": "^7.1.2",
+    "loader-utils": "^1.1.0",
     "lodash": "^4.17.4",
     "mime-types": "^2.1.15",
     "node-sprite-generator": "^0.10.2",

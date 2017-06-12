@@ -118,10 +118,33 @@ export interface GameAssetPluginOption {
 };
 
 export interface WebFont {
+    type: "WEBFONT";
 };
-export type LocalFont = string | string[];
+export type LocalFont = string;
+export interface BitmapFontConf {
+    type: "BITMAP";
+    font: string;
+    size: number;
+    fill: string;
+    weight: number;
+    characters: string;
+    stroke?: {
+        thickness: number;
+        color: string;
+    };
+    shadow?: {
+        color: string;
+        angle: number;
+        distance: number;
+    };
+    gap: number;
+};
 
-export type Fonts = {[key: string]: (WebFont | LocalFont)};
+export function isBitmap(conf: WebFont | BitmapFontConf): conf is BitmapFontConf {
+    return conf.type === "BITMAP";
+}
+
+export type Fonts = {[key: string]: (WebFont | BitmapFontConf | LocalFont)};
 
 /**
  * @hidden
