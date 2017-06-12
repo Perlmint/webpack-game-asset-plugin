@@ -1,6 +1,6 @@
 {
   "name": "webpack-game-asset-plugin",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "webpack plugin for HTML5 game asset",
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
@@ -33,7 +33,7 @@
     "@mapbox/shelf-pack": "^3.0.0",
     "@types/dot": "^1.1.1",
     "@types/gm": "^1.17.30",
-    "bitmapfont": "git+https://github.com/Perlmint/bitmapfont.git#82a1b74",
+    "bitmapfont": "^0.1.0",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",
     "debug": "^2.6.8",
