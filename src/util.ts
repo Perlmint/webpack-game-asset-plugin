@@ -3,7 +3,7 @@ import { stat, readFile, Stats } from "fs";
 import { parse as parsePath, posix } from "path";
 import * as _debug from "debug";
 
-export { fileSync as tmpFile, SynchrounousResult } from "tmp";
+export { fileSync as tmpFile, SynchrounousResult, dirSync as tmpDir } from "tmp";
 export { createWriteStream } from "fs";
 export { isAbsolute, join as localJoinPath, parse as parsePath } from "path";
 import * as xml2js from "xml2js";

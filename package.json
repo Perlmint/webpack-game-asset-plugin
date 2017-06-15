@@ -33,6 +33,7 @@
     "@mapbox/shelf-pack": "^3.0.0",
     "@types/dot": "^1.1.1",
     "@types/gm": "^1.17.30",
+    "audiosprite": "^0.6.0",
     "bitmapfont": "^0.1.0",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",

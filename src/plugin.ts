@@ -12,6 +12,7 @@ import { processImages } from "./processImages";
 import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
 import { processFonts } from "./processFont";
+import { processAudio} from "./processAudio";
 
 // for shader
 types["frag"] = "application/shader";
@@ -114,6 +115,8 @@ export default class GameAssetPlugin implements wp.Plugin {
             files => processJson(this.context, this.option.mergeJson, compilation, files)
         ).then(
             files => processFonts(this.context, this.option, compilation, files)
+        ).then(
+            files => processAudio(this.context, this.option, compilation, files)
         ).then(
             files => bb.map(
                 _.flatten(
