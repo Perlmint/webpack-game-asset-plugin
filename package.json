@@ -15,6 +15,7 @@
   "author": "Gyusun Yeom <omniavinco@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@types/audiosprite": "^0.6.0",
     "@types/bluebird": "^3.5.4",
     "@types/cheerio": "^0.22.1",
     "@types/clean-css": "^3.4.30",
