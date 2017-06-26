@@ -7,7 +7,7 @@ import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
 import { isAbsolute } from "path";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
-import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset } from "./option";
+import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext } from "./option";
 import { processImages } from "./processImages";
 import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
@@ -22,9 +22,10 @@ types["frag"] = "application/shader";
  */
 const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 
-export default class GameAssetPlugin implements wp.Plugin {
+
+export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private option: InternalOption;
-    private context: string;
+    public context: string;
     private publicPath: string;
     private entryName: string;
     private fileDependencies: string[] = [];
@@ -34,6 +35,7 @@ export default class GameAssetPlugin implements wp.Plugin {
     private startTime: number;
     private prevTimestamps: {[key: string]: number} = {};
     private configFiles: string[] = [];
+    public compilation: wp.Compilation = null;
 
     constructor(option: GameAssetPluginOption) {
         this.newFileDependencies.push(option.entryOption);
@@ -59,12 +61,13 @@ export default class GameAssetPlugin implements wp.Plugin {
     }
 
     private async emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void): bb<void> {
+        this.compilation = compilation;
         try {
             const files = await this.collectFiles();
             const fileByType = await this.classifyFiles(files);
-            const assets = await this.processAssets(compilation, fileByType);
-            await this.generateList(compilation, assets);
-            await this.generateEntry(compilation);
+            const assets = await this.processAssets(fileByType);
+            await this.generateList(assets);
+            await this.generateEntry();
             callback();
         }
         catch (e) {
@@ -109,15 +112,22 @@ export default class GameAssetPlugin implements wp.Plugin {
         compiler.plugin("after-emit", this.afterEmit.bind(this));
     }
 
-    private async processAssets(compilation: wp.Compilation, fileByType: FilesByType): bb<Assets> {
+    private async processAssets(fileByType: FilesByType): bb<Assets> {
         debug("begin process assets");
-        let files = await processImages(
-            this.context, this.option, compilation, [fileByType, _.cloneDeep(fileByType)]
-        );
-        files = await processJson(this.context, this.option.mergeJson, compilation, files);
+        let files: [FilesByType, Assets] = [fileByType, _.cloneDeep(fileByType)];
+        if (this.option.makeAtlas) {
+            files = await processImages(
+                this, this.option, files
+            );
+        }
+        if (this.option.mergeJson) {
+            files = await processJson(this, files);
+        }
         const fonts = await this.option.fonts();
-        files = await processFonts(this.context, fonts, compilation, files);
-        files = await processAudio(this.context, this.option, compilation, files);
+        files = await processFonts(this, fonts, files);
+        if (this.option.audioSprite) {
+            files = await processAudio(this, files);
+        }
         const copies = _.flatten(
             _.map(
                 files[0],
@@ -127,13 +137,13 @@ export default class GameAssetPlugin implements wp.Plugin {
 
         let copied = 0;
         for (const copy of copies) {
-            if (!this.isChanged(compilation, copy.srcFile)) {
+            if (!this.isChanged(copy.srcFile)) {
                 continue;
             }
             copied++;
             const content = await readFileAsync(copy.srcFile);
             (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
-                outFile => compilation.assets[outFile] = {
+                outFile => this.compilation.assets[outFile] = {
                     size: () => content.length,
                     source: () => content
                 }
@@ -144,7 +154,7 @@ export default class GameAssetPlugin implements wp.Plugin {
         return files[1];
     }
 
-    private generateList(compilation: wp.Compilation, fileByType: Assets) {
+    private generateList(fileByType: Assets) {
         debug("begin generate list");
         const listData = JSON.stringify(
             _.fromPairs(
@@ -157,7 +167,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                 )
             )
         );
-        compilation.assets[this.option.listOut] = {
+        this.compilation.assets[this.option.listOut] = {
             size: () => listData.length,
             source: () => listData,
         };
@@ -197,21 +207,20 @@ export default class GameAssetPlugin implements wp.Plugin {
         );
     }
 
-    private filterChanged(compilation: wp.Compilation, files: File[]) {
-        const changedOrAdded = _.keys(compilation.fileTimestamps).filter(file => {
+    private filterChanged(files: File[]) {
+        const changedOrAdded = _.keys(this.compilation.fileTimestamps).filter(file => {
             if (!_.includes(this.fileDependencies, file)) {
                 return false;
             }
 
-            return (this.prevTimestamps[file] || this.startTime) < (compilation.fileTimestamps[file] || Infinity);
+            return this.isChanged(file);
         });
     }
 
-    public isChanged(compilation: wp.Compilation, file: string) {
+    public isChanged(file: string) {
         file = this.toAbsPath(file);
         const prevTimestamp = this.prevTimestamps[file] || this.startTime;
-        const curTimeStamp = compilation.fileTimestamps[file] || Infinity;
-        console.log(prevTimestamp, curTimeStamp);
+        const curTimeStamp = this.compilation.fileTimestamps[file] || Infinity;
         return prevTimestamp < curTimeStamp;
     }
 
@@ -274,7 +283,7 @@ export default class GameAssetPlugin implements wp.Plugin {
         return fileByType;
     }
 
-    private async generateEntry(compilation: wp.Compilation): bb<void> {
+    private async generateEntry(): bb<void> {
         const option = await this.option.entryOption();
         const deps = [option._path];
 
@@ -288,14 +297,14 @@ export default class GameAssetPlugin implements wp.Plugin {
             deps.push(option.offline.image);
         }
 
-        if (!_.some(deps, d => this.isChanged(compilation, d))) {
+        if (!_.some(deps, d => this.isChanged(d))) {
             return;
         }
 
         const files = await generateEntry(this.publicPath, this.entryName , option);
 
         _.forEach(files, (content, name) => {
-            compilation.assets[name] = {
+            this.compilation.assets[name] = {
                 size: () => content.length,
                 source: () => content
             };

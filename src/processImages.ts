@@ -2,28 +2,25 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as nsg from "node-sprite-generator";
-import { InternalOption, FilesByType, File, Assets } from "./option";
+import { InternalOption, FilesByType, File, Assets, ProcessContext, AtlasMapType } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 
 /**
  * @hidden
  */
-export async function processImages(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, FilesByType]): bb<[FilesByType, Assets]> {
+export async function processImages(context: ProcessContext, option: InternalOption, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
-    if (option.makeAtlas === false) {
-        debug("copy images");
-        return bb.resolve(files);
-    }
 
-    const images = assets["image"];
+    const images = toCopy["image"];
     toCopy["image"] = {};
     delete assets["image"];
     assets["atlas"] = {};
     let idx = 0;
 
-    debug("generate atlas");
     const map = await option.atlasMap();
+
+    debug("generate atlas");
 
     const excludes = _.keys(images).filter(img => _.find(map.excludes, e => _.startsWith(img, e)));
     for (const key of excludes) {
@@ -52,7 +49,11 @@ export async function processImages(context: string, option: InternalOption, com
                 postfix,
                 discardDescriptor: true
             }));
-            const imgSrcs = _.fromPairs(source.map(src => [localJoinPath(context, src[1].srcFile), src[0]]));
+            const imgSrcs = _.fromPairs(
+                source.map(
+                    src => [localJoinPath(context.context, src[1].srcFile), src[0]]
+                )
+            );
 
             nsg({
                 src: _.keys(imgSrcs),
@@ -72,7 +73,7 @@ export async function processImages(context: string, option: InternalOption, com
                                 [[atlas, ".png"], [info, ".json"]],
                                 names =>
                                     readFileAsync(names[0].name).then(content => {
-                                        compilation.assets[outName + names[1]] = {
+                                        context.compilation.assets[outName + names[1]] = {
                                             size: () => content.length,
                                             source: () => content
                                         };

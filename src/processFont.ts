@@ -2,7 +2,7 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import { extname, dirname, join } from "path";
-import { FilesByType, Assets, File, isBitmap, Fonts } from "./option";
+import { FilesByType, Assets, File, isBitmap, Fonts, ProcessContext } from "./option";
 import { debug, readFileAsync, parseXMLString } from "./util";
 import * as xml2js from "xml2js";
 import { createInterface } from "readline";
@@ -13,14 +13,14 @@ import * as ShelfPack from "@mapbox/shelf-pack";
 /**
  * @hidden
  */
-export async function processFonts(context: string, fonts: Fonts, compilation: wp.Compilation, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
+export async function processFonts(context: ProcessContext, fonts: Fonts, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     debug("process fonts");
 
     for (const key of _.keys(fonts)) {
         const conf = fonts[key];
-        debug(`font : ${conf}`);
+        debug(`font : ${JSON.stringify(conf)}`);
         if (typeof conf === "string") {
             const ext = extname(conf);
             // bitmap font
@@ -36,7 +36,7 @@ export async function processFonts(context: string, fonts: Fonts, compilation: w
                     const fntString = new xml2js.Builder({
                         trim: true
                     }).buildObject(xml);
-                    compilation.assets[key + ".fnt"] = {
+                    context.compilation.assets[key + ".fnt"] = {
                         size: () => fntString.length,
                         source: () => fntString
                     };
@@ -60,7 +60,7 @@ export async function processFonts(context: string, fonts: Fonts, compilation: w
                         });
                         rl.on("close", () => {
                             const atlas = lines.join("\n");
-                            compilation.assets[key + ".fnt"] = {
+                            context.compilation.assets[key + ".fnt"] = {
                                 size: () => atlas.length,
                                 source: () => atlas
                             };
@@ -71,7 +71,7 @@ export async function processFonts(context: string, fonts: Fonts, compilation: w
                 }
                 const img = await readFileAsync(join(dirname(conf), imageName));
                 const imgExt = extname(imageName);
-                compilation.assets[key + imgExt] = {
+                context.compilation.assets[key + imgExt] = {
                     size: () => img.length,
                     source: () => img
                 };
@@ -88,7 +88,7 @@ export async function processFonts(context: string, fonts: Fonts, compilation: w
                 if (assets["webfont"] === undefined) {
                     assets["webfont"] = {};
                 }
-                compilation.assets[key + ".css"] = {
+                context.compilation.assets[key + ".css"] = {
                     size: () => css.length,
                     source: () => css
                 };
@@ -150,12 +150,12 @@ export async function processFonts(context: string, fonts: Fonts, compilation: w
             assets["bitmapFont"][key] = {
                 args: [imageName, fontInfoName]
             };
-            compilation.assets[imageName] = {
+            context.compilation.assets[imageName] = {
                 size: () => imageBlob.length,
                 source: () => imageBlob
             };
             const fntInfoBuffer = new Buffer(fntInfo.join(""), "utf-8");
-            compilation.assets[fontInfoName] = {
+            context.compilation.assets[fontInfoName] = {
                 size: () => fntInfoBuffer.length,
                 source: () => fntInfoBuffer
             };

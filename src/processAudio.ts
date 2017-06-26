@@ -2,18 +2,14 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as audiosprite from "audiosprite";
-import { InternalOption, FilesByType, File, Assets } from "./option";
+import { InternalOption, FilesByType, File, Assets, ProcessContext } from "./option";
 import { tmpDir, localJoinPath, readFileAsync } from "./util";
 import { relative } from "path";
 
 /**
  * @hidden
  */
-export function processAudio(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
-    if (!option.audioSprite) {
-        return bb.resolve(files);
-    }
-
+export function processAudio(context: ProcessContext, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     const audios = toCopy["audio"];
     toCopy["audio"] = {};
@@ -30,14 +26,14 @@ export function processAudio(context: string, option: InternalOption, compilatio
 
             const resourceNames = obj.resources.map(v => relative(tmp.name, v));
             bb.map(obj.resources, (res, i) => readFileAsync(res).then(audio => {
-                compilation.assets[resourceNames[i]] = {
+                context.compilation.assets[resourceNames[i]] = {
                     size: () => audio.length,
                     source: () => audio
                 };
             }));
             obj.resources = resourceNames;
             const audioSpriteAtlas = JSON.stringify(obj);
-            compilation.assets["as.json"] = {
+            context.compilation.assets["as.json"] = {
                 size: () => audioSpriteAtlas.length,
                 source: () => audioSpriteAtlas
             };

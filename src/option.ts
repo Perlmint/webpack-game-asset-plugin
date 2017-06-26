@@ -1,6 +1,7 @@
 import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
+import * as wp from "webpack";
 import { readFileAsync } from "./util";
 import { Option as EntryOption } from "./entryGenerator";
 
@@ -267,4 +268,11 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
             );
         }
     } as InternalOption;
+};
+
+export interface ProcessContext {
+    compilation: wp.Compilation;
+    context: string;
+
+    isChanged(file: string): boolean;
 };
