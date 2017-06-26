@@ -115,7 +115,8 @@ export default class GameAssetPlugin implements wp.Plugin {
             this.context, this.option, compilation, [fileByType, _.cloneDeep(fileByType)]
         );
         files = await processJson(this.context, this.option.mergeJson, compilation, files);
-        files = await processFonts(this.context, this.option, compilation, files);
+        const fonts = await this.option.fonts();
+        files = await processFonts(this.context, fonts, compilation, files);
         files = await processAudio(this.context, this.option, compilation, files);
         const copies = _.flatten(
             _.map(

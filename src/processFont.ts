@@ -2,7 +2,7 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import { extname, dirname, join } from "path";
-import { InternalOption, FilesByType, Assets, File, isBitmap } from "./option";
+import { FilesByType, Assets, File, isBitmap, Fonts } from "./option";
 import { debug, readFileAsync, parseXMLString } from "./util";
 import * as xml2js from "xml2js";
 import { createInterface } from "readline";
@@ -13,31 +13,36 @@ import * as ShelfPack from "@mapbox/shelf-pack";
 /**
  * @hidden
  */
-export function processFonts(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
+export async function processFonts(context: string, fonts: Fonts, compilation: wp.Compilation, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     debug("process fonts");
 
-    return option.fonts().then(fonts => bb.all(_.map(fonts, (conf, key) => {
-        debug(conf);
+    for (const key of _.keys(fonts)) {
+        const conf = fonts[key];
+        debug(`font : ${conf}`);
         if (typeof conf === "string") {
             const ext = extname(conf);
             // bitmap font
             if (ext === ".fnt") {
-                return readFileAsync(conf).then(
-                    buf => parseXMLString(buf).then(xml => {
-                        const imageName = xml.font.pages[0].page[0]["$"].file;
-                        const ext = extname(imageName);
-                        xml.font.pages[0].page[0]["$"].file = key + ext;
-                        const fntString = new xml2js.Builder({
-                            trim: true
-                        }).buildObject(xml);
-                        compilation.assets[key + ".fnt"] = {
-                            size: () => fntString.length,
-                            source: () => fntString
-                        };
-                        return imageName;
-                    }).error(e => new bb<string>(resolve => {
+                const buf = await readFileAsync(conf);
+                let imageName = "";
+
+                try {
+                    const xml = await parseXMLString(buf);
+                    imageName = xml.font.pages[0].page[0]["$"].file;
+                    const ext = extname(imageName);
+                    xml.font.pages[0].page[0]["$"].file = key + ext;
+                    const fntString = new xml2js.Builder({
+                        trim: true
+                    }).buildObject(xml);
+                    compilation.assets[key + ".fnt"] = {
+                        size: () => fntString.length,
+                        source: () => fntString
+                    };
+                }
+                catch (e) {
+                    imageName = await new bb<string>(resolve => {
                         const stream = new ReadableStreamBuffer();
                         stream.put(buf);
                         const rl = createInterface(stream);
@@ -62,43 +67,39 @@ export function processFonts(context: string, option: InternalOption, compilatio
                             resolve(imageName);
                         });
                         stream.stop();
-                    }))
-                ).then(imageName => readFileAsync(join(dirname(conf), imageName)).then(
-                    img => {
-                        const ext = extname(imageName);
-                        compilation.assets[key + ext] = {
-                            size: () => img.length,
-                            source: () => img
-                        };
-                        return ext;
-                    }
-                )).then(imgExt => {
-                    if (assets["bitmapFont"] === undefined) {
-                        assets["bitmapFont"] = {};
-                    }
-                    assets["bitmapFont"][key] = {
-                        args: [key + imgExt, key + ".fnt"]
-                    };
-                });
+                    });
+                }
+                const img = await readFileAsync(join(dirname(conf), imageName));
+                const imgExt = extname(imageName);
+                compilation.assets[key + imgExt] = {
+                    size: () => img.length,
+                    source: () => img
+                };
+                if (assets["bitmapFont"] === undefined) {
+                    assets["bitmapFont"] = {};
+                }
+                assets["bitmapFont"][key] = {
+                    args: [key + imgExt, key + ".fnt"]
+                };
             }
             else if (ext === ".css") {
-                return readFileAsync(conf).then(css => {
-                    if (assets["webfont"] === undefined) {
-                        assets["webfont"] = {};
-                    }
-                    compilation.assets[key + ".css"] = {
-                        size: () => css.length,
-                        source: () => css
-                    };
-                    assets["webfont"][key] = {
-                        args: {
-                            custom: {
-                                families: [key],
-                                urls: [key + ".css"]
-                            }
+                const css = await readFileAsync(conf);
+
+                if (assets["webfont"] === undefined) {
+                    assets["webfont"] = {};
+                }
+                compilation.assets[key + ".css"] = {
+                    size: () => css.length,
+                    source: () => css
+                };
+                assets["webfont"][key] = {
+                    args: {
+                        custom: {
+                            families: [key],
+                            urls: [key + ".css"]
                         }
-                    };
-                });
+                    }
+                };
             }
         }
         else if (isBitmap(conf)) {
@@ -130,7 +131,7 @@ export function processFonts(context: string, option: InternalOption, compilatio
                     id: i,
                     w: Math.ceil(info.x2 - info.x1) + conf.gap * 2,
                     h: chHeight + conf.gap * 2
-                } as ShelfPack.RequestShort;
+                };
             });
             const bins = pack.pack(requests);
             const canvas = new Canvas(pack.w + conf.gap, pack.h + conf.gap);
@@ -168,5 +169,7 @@ export function processFonts(context: string, option: InternalOption, compilatio
                 args: conf
             };
         }
-    }))).then(() => files);
+    }
+
+    return files;
 }
