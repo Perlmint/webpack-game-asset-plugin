@@ -58,17 +58,19 @@ export default class GameAssetPlugin implements wp.Plugin {
         return localJoinPath(this.context, path);
     }
 
-    private emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void) {
-        this.collectFiles()
-            .then(files => this.classifyFiles(files))
-            .then(fileByType => this.processAssets(compilation, fileByType))
-            .then(fileByType => this.generateList(compilation, fileByType))
-            .then(() => this.generateEntry(compilation))
-            .then(() => callback())
-            .catch(e => {
-                debug("Error occured while emitting");
-                callback(e);
-            });
+    private async emit(compiler: wp.Compiler, compilation: wp.Compilation, callback: (err?: Error) => void): bb<void> {
+        try {
+            const files = await this.collectFiles();
+            const fileByType = await this.classifyFiles(files);
+            const assets = await this.processAssets(compilation, fileByType);
+            await this.generateList(compilation, assets);
+            await this.generateEntry(compilation);
+            callback();
+        }
+        catch (e) {
+            debug("Error occured while emitting");
+            callback(e);
+        }
     }
 
     private afterEmit(compilation: wp.Compilation, callback: (err?: Error) => void) {
@@ -107,36 +109,34 @@ export default class GameAssetPlugin implements wp.Plugin {
         compiler.plugin("after-emit", this.afterEmit.bind(this));
     }
 
-    private processAssets(compilation: wp.Compilation, fileByType: FilesByType) {
+    private async processAssets(compilation: wp.Compilation, fileByType: FilesByType): bb<Assets> {
         debug("begin process assets");
-        return processImages(
+        let files = await processImages(
             this.context, this.option, compilation, [fileByType, _.cloneDeep(fileByType)]
-        ).then(
-            files => processJson(this.context, this.option.mergeJson, compilation, files)
-        ).then(
-            files => processFonts(this.context, this.option, compilation, files)
-        ).then(
-            files => processAudio(this.context, this.option, compilation, files)
-        ).then(
-            files => bb.map(
-                _.flatten(
-                    _.map(
-                        files[0],
-                        byType => _.values(byType)
-                    )
-                ),
-                file => readFileAsync(file.srcFile).then(
-                    content => {
-                        (typeof file.outFile === "string" ? [file.outFile] : file.outFile).map(
-                            outFile => compilation.assets[outFile] = {
-                                size: () => content.length,
-                                source: () => content
-                            }
-                        );
-                    }
-                )
-            ).then(() => files[1])
         );
+        files = await processJson(this.context, this.option.mergeJson, compilation, files);
+        files = await processFonts(this.context, this.option, compilation, files);
+        files = await processAudio(this.context, this.option, compilation, files);
+        await bb.map(
+            _.flatten(
+                _.map(
+                    files[0],
+                    byType => _.values(byType)
+                )
+            ),
+            file => readFileAsync(file.srcFile).then(
+                content => {
+                    (typeof file.outFile === "string" ? [file.outFile] : file.outFile).map(
+                        outFile => compilation.assets[outFile] = {
+                            size: () => content.length,
+                            source: () => content
+                        }
+                    );
+                }
+            )
+        );
+
+        return files[1];
     }
 
     private generateList(compilation: wp.Compilation, fileByType: Assets) {
@@ -159,9 +159,9 @@ export default class GameAssetPlugin implements wp.Plugin {
         return bb.resolve();
     }
 
-    private collectFiles() {
+    private async collectFiles(): bb<File[]> {
         debug("collect assets");
-        return bb.map(this.option.assetRoots, root => {
+        const filesByRoot = await bb.map(this.option.assetRoots, root => {
             const { src: srcRoot, out: outRoot } = root;
             return glob(srcRoot + "/**/*", {
                 ignore: this.option.excludes
@@ -172,7 +172,8 @@ export default class GameAssetPlugin implements wp.Plugin {
                     items
                 })
             );
-        }).then(filesByRoot => _.flatten(
+        });
+        return _.flatten(
             _.map(filesByRoot,
                 val => val.items.map<File>(
                     file => {
@@ -188,7 +189,7 @@ export default class GameAssetPlugin implements wp.Plugin {
                     }
                 )
             )
-        ));
+        );
     }
 
     private filterChanged(compilation: wp.Compilation, files: File[]) {
@@ -209,9 +210,9 @@ export default class GameAssetPlugin implements wp.Plugin {
         return prevTimestamp < curTimeStamp;
     }
 
-    private classifyFiles(files: File[]): bb<FilesByType> {
+    private async classifyFiles(files: File[]): bb<FilesByType> {
         debug("classify collected files by mime-type");
-        return bb.map(
+        const cat_files = await bb.map(
             files,
             file => statAsync(file.srcFile)
                 .then<File & { cat: string }>(fileStat => {
@@ -240,33 +241,32 @@ export default class GameAssetPlugin implements wp.Plugin {
                         ...file
                     };
                 })
-        ).then(cat_files => {
-            const groups = _.groupBy(_.filter(cat_files), file => file.cat);
-            if (groups["dir"]) {
-                for (const file of groups["dir"]) {
-                    if (!_.includes(this.contextDependencies, file.srcFile)) {
-                        this.newContextDependencies.push(file.srcFile);
-                    }
-                }
-                delete groups["dir"];
-            }
-            const fileByType: FilesByType = {};
-            for (const cat of _.keys(groups)) {
-                for (const file of groups[cat]) {
-                    if (!_.includes(this.fileDependencies, file.srcFile)) {
-                        this.newFileDependencies.push(file.srcFile);
-                    }
-
-                    if (fileByType[cat] === undefined) {
-                        fileByType[cat] = {};
-                    }
-
-                    fileByType[cat][file.name] = file;
+        );
+        const groups = _.groupBy(_.filter(cat_files), file => file.cat);
+        if (groups["dir"]) {
+            for (const file of groups["dir"]) {
+                if (!_.includes(this.contextDependencies, file.srcFile)) {
+                    this.newContextDependencies.push(file.srcFile);
                 }
             }
+            delete groups["dir"];
+        }
+        const fileByType: FilesByType = {};
+        for (const cat of _.keys(groups)) {
+            for (const file of groups[cat]) {
+                if (!_.includes(this.fileDependencies, file.srcFile)) {
+                    this.newFileDependencies.push(file.srcFile);
+                }
 
-            return fileByType;
-        });
+                if (fileByType[cat] === undefined) {
+                    fileByType[cat] = {};
+                }
+
+                fileByType[cat][file.name] = file;
+            }
+        }
+
+        return fileByType;
     }
 
     private async generateEntry(compilation: wp.Compilation): bb<void> {

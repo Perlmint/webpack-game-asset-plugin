@@ -2,14 +2,14 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as nsg from "node-sprite-generator";
-import { InternalOption, FilesByType, File } from "./option";
+import { InternalOption, FilesByType, File, Assets } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 
 /**
  * @hidden
  */
-export function processImages(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, FilesByType]): bb<[FilesByType, FilesByType]> {
+export async function processImages(context: string, option: InternalOption, compilation: wp.Compilation, files: [FilesByType, FilesByType]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     if (option.makeAtlas === false) {
         debug("copy images");
@@ -23,31 +23,30 @@ export function processImages(context: string, option: InternalOption, compilati
     let idx = 0;
 
     debug("generate atlas");
-    return option.atlasMap().then(
-        map => {
-            const excludes = _.keys(images).filter(img => _.find(map.excludes, e => _.startsWith(img, e)));
-            for (const key of excludes) {
-                toCopy["image"][key] = images[key];
-                delete images[key];
-            }
-            const sources: {[key: string]: [string, File][]} = {};
-            _.forEach(images, (file, key) => {
-                for (const pfxkv of map.pack) {
-                    const { name: pfx, group: idx } = pfxkv;
-                    if (!_.startsWith(key, pfx)) {
-                        continue;
-                    }
+    const map = await option.atlasMap();
 
-                    if (sources[idx] === undefined) {
-                        sources[idx] = [];
-                    }
-                    sources[idx].push([key, file]);
-                    break;
-                }
-            });
-            return sources;
+    const excludes = _.keys(images).filter(img => _.find(map.excludes, e => _.startsWith(img, e)));
+    for (const key of excludes) {
+        toCopy["image"][key] = images[key];
+        delete images[key];
+    }
+    const sources: {[key: string]: [string, File][]} = {};
+    _.forEach(images, (file, key) => {
+        for (const pfxkv of map.pack) {
+            const { name: pfx, group: idx } = pfxkv;
+            if (!_.startsWith(key, pfx)) {
+                continue;
+            }
+
+            if (sources[idx] === undefined) {
+                sources[idx] = [];
+            }
+            sources[idx].push([key, file]);
+            break;
         }
-    ).then(sources => bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
+    });
+
+    await bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
         try {
             const [atlas, info] = [".png", ".json"].map(postfix => tmpFile({
                 postfix,
@@ -65,33 +64,34 @@ export function processImages(context: string, option: InternalOption, compilati
                 layoutOptions: {
                     padding: option.atlasOption.padding || 0
                 }
-            }, e => {
+            }, async (e): bb<void> => {
                 if (e == null) {
-                    bb.all(
-                        _.map<[SynchrounousResult , string], bb<void>>(
-                            [[atlas, ".png"], [info, ".json"]],
-                            names =>
-                                readFileAsync(names[0].name).then(content => {
-                                    compilation.assets[outName + names[1]] = {
-                                        size: () => content.length,
-                                        source: () => content
-                                    };
-                                    names[0].removeCallback();
-                                })
-                        )
-                    ).then(() => {
+                    try {
+                        await bb.all(
+                            _.map<[SynchrounousResult , string], bb<void>>(
+                                [[atlas, ".png"], [info, ".json"]],
+                                names =>
+                                    readFileAsync(names[0].name).then(content => {
+                                        compilation.assets[outName + names[1]] = {
+                                            size: () => content.length,
+                                            source: () => content
+                                        };
+                                        names[0].removeCallback();
+                                    })
+                            )
+                        );
                         assets["atlas"][outName] = {
                             ext: ".png",
                             name: outName,
                             outFile: [outName + ".png", outName + ".json"],
                             srcFile: ""
                         };
-                    }).then(() => {
                         resolve();
-                    }).catch(e => {
+                    }
+                    catch (error) {
                         debug("Error occured while register generated atlas as assets");
-                        reject(e);
-                    });
+                        reject(error);
+                    }
                 } else {
                     debug("Error occured while atlas generating");
                     reject(e);
@@ -100,5 +100,7 @@ export function processImages(context: string, option: InternalOption, compilati
         } catch (e) {
             reject(e);
         };
-    })))).then<[FilesByType, FilesByType]>(() => [toCopy, assets]);
+    })));
+
+    return [toCopy, assets];
 }
