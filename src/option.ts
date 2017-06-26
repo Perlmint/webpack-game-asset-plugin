@@ -273,6 +273,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
 export interface ProcessContext {
     compilation: wp.Compilation;
     context: string;
+    cache: { [key: string]: any };
 
     isChanged(file: string): boolean;
 };

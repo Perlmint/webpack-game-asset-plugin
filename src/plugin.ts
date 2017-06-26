@@ -36,6 +36,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private prevTimestamps: {[key: string]: number} = {};
     private configFiles: string[] = [];
     public compilation: wp.Compilation = null;
+    public cache: { [key: string]: any } = {};
 
     constructor(option: GameAssetPluginOption) {
         this.newFileDependencies.push(option.entryOption);

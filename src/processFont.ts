@@ -20,9 +20,11 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
 
     for (const key of _.keys(fonts)) {
         const conf = fonts[key];
-        debug(`font : ${JSON.stringify(conf)}`);
         if (typeof conf === "string") {
             const ext = extname(conf);
+            if (!context.isChanged(conf)) {
+                continue;
+            }
             // bitmap font
             if (ext === ".fnt") {
                 const buf = await readFileAsync(conf);
@@ -103,6 +105,14 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
             }
         }
         else if (isBitmap(conf)) {
+            const cacheKey = `font_${key}`;
+            if (_.isEqual(context.cache[cacheKey], conf)) {
+                continue;
+            }
+
+            debug(`render bitmap font - ${key}
+${JSON.stringify(conf)}`);
+            context.cache[cacheKey] = conf;
             // bitmapfont config
             const font = new BitmapFont();
             font.family = conf.font;
