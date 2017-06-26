@@ -117,24 +117,28 @@ export default class GameAssetPlugin implements wp.Plugin {
         files = await processJson(this.context, this.option.mergeJson, compilation, files);
         files = await processFonts(this.context, this.option, compilation, files);
         files = await processAudio(this.context, this.option, compilation, files);
-        await bb.map(
-            _.flatten(
-                _.map(
-                    files[0],
-                    byType => _.values(byType)
-                )
-            ),
-            file => readFileAsync(file.srcFile).then(
-                content => {
-                    (typeof file.outFile === "string" ? [file.outFile] : file.outFile).map(
-                        outFile => compilation.assets[outFile] = {
-                            size: () => content.length,
-                            source: () => content
-                        }
-                    );
-                }
+        const copies = _.flatten(
+            _.map(
+                files[0],
+                byType => _.values(byType)
             )
         );
+
+        let copied = 0;
+        for (const copy of copies) {
+            if (!this.isChanged(compilation, copy.srcFile)) {
+                continue;
+            }
+            copied++;
+            const content = await readFileAsync(copy.srcFile);
+            (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
+                outFile => compilation.assets[outFile] = {
+                    size: () => content.length,
+                    source: () => content
+                }
+            );
+        }
+        debug(`${copied} items are copied`);
 
         return files[1];
     }
