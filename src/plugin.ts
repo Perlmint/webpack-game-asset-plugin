@@ -77,12 +77,12 @@ export default class GameAssetPlugin implements wp.Plugin {
         this.newFileDependencies = this.newFileDependencies.map(p => this.toAbsPath(p));
         debug(this.newFileDependencies[0]);
         compilation.fileDependencies.push(...this.newFileDependencies);
-        this.fileDependencies.push(...this.newFileDependencies);
+        this.fileDependencies = this.newFileDependencies;
         debug(compilation.fileDependencies.length);
         debug(`added ${this.newContextDependencies.length} context dependencies`);
         this.newContextDependencies = this.newContextDependencies.map(p => this.toAbsPath(p));
         compilation.contextDependencies.push(...this.newContextDependencies);
-        this.contextDependencies.push(...this.newContextDependencies);
+        this.contextDependencies = this.newContextDependencies;
         this.newContextDependencies = [];
         this.newFileDependencies = [];
 
@@ -201,6 +201,14 @@ export default class GameAssetPlugin implements wp.Plugin {
         });
     }
 
+    public isChanged(compilation: wp.Compilation, file: string) {
+        file = this.toAbsPath(file);
+        const prevTimestamp = this.prevTimestamps[file] || this.startTime;
+        const curTimeStamp = compilation.fileTimestamps[file] || Infinity;
+        console.log(prevTimestamp, curTimeStamp);
+        return prevTimestamp < curTimeStamp;
+    }
+
     private classifyFiles(files: File[]): bb<FilesByType> {
         debug("classify collected files by mime-type");
         return bb.map(
@@ -261,16 +269,31 @@ export default class GameAssetPlugin implements wp.Plugin {
         });
     }
 
-    private generateEntry(compilation: wp.Compilation) {
-        return this.option.entryOption().then(
-            option => generateEntry(this.publicPath, this.entryName , option)
-        ).then(files => {
-            _.forEach(files, (content, name) => {
-                compilation.assets[name] = {
-                    size: () => content.length,
-                    source: () => content
-                };
-            });
+    private async generateEntry(compilation: wp.Compilation): bb<void> {
+        const option = await this.option.entryOption();
+        const deps = [option._path];
+
+        if (option.icon) {
+            this.newFileDependencies.push(option.icon);
+            deps.push(option.icon);
+        }
+
+        if (option.offline && option.offline.image) {
+            this.newFileDependencies.push(option.offline.image);
+            deps.push(option.offline.image);
+        }
+
+        if (!_.some(deps, d => this.isChanged(compilation, d))) {
+            return;
+        }
+
+        const files = await generateEntry(this.publicPath, this.entryName , option);
+
+        _.forEach(files, (content, name) => {
+            compilation.assets[name] = {
+                size: () => content.length,
+                source: () => content
+            };
         });
     }
 }

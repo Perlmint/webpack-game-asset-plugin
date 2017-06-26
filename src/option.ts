@@ -251,7 +251,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         entryOption: () => readFileAsync(
             pubOption.entryOption
         ).then(
-            buf => JSON.parse(buf.toString("utf-8"))
+            buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
         ),
         mergeJson: pubOption.mergeJson || false,
         audioSprite: pubOption.audioSprite || false,

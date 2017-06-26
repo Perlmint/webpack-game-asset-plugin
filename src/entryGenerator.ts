@@ -157,6 +157,10 @@ export interface Option {
          */
         image?: string;
     };
+    /**
+     * @hidden
+     */
+    _path: string;
 }
 
 /**
