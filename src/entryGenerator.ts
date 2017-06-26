@@ -7,6 +7,20 @@ import { join, extname } from "path";
 import { readFileSync } from "fs";
 import { lookup } from "mime-types";
 import { tmpFile, readFileAsync, debug } from "./util";
+import * as CleanCSS from "clean-css";
+import { minify as minifyJS } from "uglify-js";
+import { minify as _minifyHTML } from "html-minifier";
+
+/**
+ * @hidden
+ */
+function minifyHTML(html: string) {
+    return _minifyHTML(html, {
+        removeComments: true,
+        removeRedundantAttributes: true,
+        collapseWhitespace: true
+    });
+}
 
 /**
  * @hidden
@@ -205,7 +219,7 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
         android_manifest.background_color = option.backgroundColor;
     }
     $("head").append("<style type=\"text/css\"></style>");
-    $("head style").text(css);
+    $("head style").text(new CleanCSS({}).minify(css).styles);
 
     if (option.themeColor) {
         android_manifest.theme_color = option.themeColor;
@@ -293,11 +307,15 @@ export function generateEntry(prefix: string, entryJS: string, option: Option) {
                 const imageBase64 = readFileSync(option.offline.image).toString("base64");
                 params["image"] = `data:${imageMime};base64,${imageBase64}`;
             }
-            ret["offline.js"] = offlineJSTemplate(params);
-            ret["offline.html"] = offlineHTMLTemplate(params);
+            ret["offline.js"] = minifyJS(offlineJSTemplate(params), {
+                mangle: {
+                    toplevel: true
+                }
+            }).code;
+            ret["offline.html"] = minifyHTML(offlineHTMLTemplate(params));
         }
 
-        ret[option.entryName] = $.html();
+        ret[option.entryName] = minifyHTML($.html());
         ret["android_manifest.json"] = JSON.stringify(android_manifest);
 
         return ret;
