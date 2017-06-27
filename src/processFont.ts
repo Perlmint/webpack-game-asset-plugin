@@ -102,7 +102,7 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
         else if (isBitmap(conf)) {
             const cacheKey = `font_${key}`;
             const [imageName, fontInfoName] = [key + ".png", key + ".fnt"];
-            _.set(assets, ["bitmapFont", "key"], {
+            _.set(assets, ["bitmapFont", key], {
                 args: [imageName, fontInfoName]
             });
             if (_.isEqual(context.cache[cacheKey], conf)) {
