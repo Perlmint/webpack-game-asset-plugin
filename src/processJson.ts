@@ -5,6 +5,9 @@ import { join } from "path";
 import { readFileAsync } from "./util";
 import { FilesByType, Assets, ProcessContext } from "./option";
 
+/**
+ * @hidden
+ */
 export async function processJson(context: ProcessContext, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     const jsonFiles = toCopy["json"];

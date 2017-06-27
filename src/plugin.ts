@@ -25,6 +25,9 @@ const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 
 export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private option: InternalOption;
+    /**
+     * @hidden
+     */
     public context: string;
     private publicPath: string;
     private entryName: string;
@@ -35,7 +38,13 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private startTime: number;
     private prevTimestamps: {[key: string]: number} = {};
     private configFiles: string[] = [];
+    /**
+     * @hidden
+     */
     public compilation: wp.Compilation = null;
+    /**
+     * @hidden
+     */
     public cache: { [key: string]: any } = {};
 
     constructor(option: GameAssetPluginOption) {

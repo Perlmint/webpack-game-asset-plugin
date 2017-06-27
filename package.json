@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@mapbox/shelf-pack": "^3.0.0",
+    "@types/webfontloader": "^1.6.28",
     "audiosprite": "^0.6.0",
     "bitmapfont": "^0.1.0",
     "bluebird": "^3.5.0",

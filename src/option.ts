@@ -2,8 +2,9 @@ import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as wp from "webpack";
+import { Fontdeck, Google, Monotype, Typekit, Custom as CustomWebFont } from "webfontloader";
 import { readFileAsync } from "./util";
-import { Option as EntryOption } from "./entryGenerator";
+import { EntryOption } from "./entryGenerator";
 
 /**
  * @hidden
@@ -21,6 +22,9 @@ export interface File {
 export type FilesByType = {[key: string]: {[key: string]: File}};
 export type CustomAsset = { args: any };
 export type Assets = {[key: string]: {[key: string]: File | CustomAsset }};
+/**
+ * @hidden
+ */
 export function isCustomAsset(asset: File | CustomAsset): asset is CustomAsset  {
     return (<CustomAsset>asset).args !== undefined;
 }
@@ -63,7 +67,7 @@ export interface GameAssetPluginOption {
      *
      * when string is passed, assume it as file path which contains definition in JSON format.
      *
-     * `AtlasGroupDefinition` is passed, just use it as is.
+     * [[AtlasGroupDefinition]] is passed, just use it as is.
      */
     atlasMap?: string | AtlasGroupDefinition;
     /**
@@ -95,7 +99,7 @@ export interface GameAssetPluginOption {
     /**
      * Path of file containing generating entry html option
      *
-     * @see entryGenerator.Option
+     * @see [[EntryOption]]
      */
     entryOption: string;
     /**
@@ -114,38 +118,100 @@ export interface GameAssetPluginOption {
      * Configure file to include fonts
      *
      * webfonts, bitmapfont, others...
+     * @see [[WebFontConf]]
+     * @sse [[BitmapFontConf]]
+     * @see [[LocalFontConf]]
      */
     fonts?: string;
 };
 
-export interface WebFont {
+/**
+ * Webfont config - see [webfontloader](https://www.npmjs.com/package/webfontloader)
+ *
+ * one of custom / google / typekit / fontdeck / monotype should be set
+ */
+export interface WebFontConf {
     type: "WEBFONT";
+    custom?: CustomWebFont;
+    google?: Google;
+    typekit?: Typekit;
+    fontdeck?: Fontdeck;
+    monotype?: Monotype;
 };
-export type LocalFont = string;
+/**
+ * file file path - `.ttf` file or `.fnt` file
+ */
+export type LocalFontConf = string;
+/**
+ * Bitmap generation option
+ */
 export interface BitmapFontConf {
     type: "BITMAP";
+    /**
+     * Font name
+     */
     font: string;
+    /**
+     * Font size in px
+     */
     size: number;
+    /**
+     * Font fill color
+     */
     fill: string;
+    /**
+     * Font weight
+     * @default 400(normal)
+     */
     weight: number;
+    /**
+     * characters to render
+     */
     characters: string;
+    /**
+     * outline stroke option
+     */
     stroke?: {
+        /**
+         * stroke thickness in px
+         */
         thickness: number;
+        /**
+         * stroke color
+         */
         color: string;
     };
+    /**
+     * Font shadow
+     */
     shadow?: {
+        /**
+         * shadow color
+         */
         color: string;
+        /**
+         * shadow angle
+         */
         angle: number;
+        /**
+         * shadow distance from center
+         */
         distance: number;
     };
+    /**
+     * margin for each characters
+     */
     gap: number;
 };
 
-export function isBitmap(conf: WebFont | BitmapFontConf): conf is BitmapFontConf {
+/**
+ * @hidden
+ */
+export function isBitmap(conf: WebFontConf | BitmapFontConf): conf is BitmapFontConf {
     return conf.type === "BITMAP";
 }
 
-export type Fonts = {[key: string]: (WebFont | BitmapFontConf | LocalFont)};
+export type Fonts = {[key: string]: (WebFontConf | BitmapFontConf | LocalFontConf)};
 
 /**
  * @hidden
@@ -270,6 +336,9 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
     } as InternalOption;
 };
 
+/**
+ * @hidden
+ */
 export interface ProcessContext {
     compilation: wp.Compilation;
     context: string;

@@ -52,7 +52,7 @@ const [
     offlineHTMLTemplate
 ] = ["offline.js", "offline.html"].map(file => compile(templateLoader(file)));
 
-export interface Option {
+export interface EntryOption {
     /**
      * Title of app
      *
@@ -166,7 +166,7 @@ export interface Option {
 /**
  * @hidden
  */
-export function generateEntry(prefix: string, entryJS: string, option: Option) {
+export function generateEntry(prefix: string, entryJS: string, option: EntryOption) {
     debug("Generate Entry html");
     const ret: {[key: string]: string | Buffer} = {};
     const android_manifest: any = {};
