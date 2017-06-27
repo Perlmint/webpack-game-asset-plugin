@@ -1,4 +1,3 @@
-import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import { extname, dirname, join } from "path";
@@ -22,9 +21,6 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
         const conf = fonts[key];
         if (typeof conf === "string") {
             const ext = extname(conf);
-            if (!context.isChanged(conf)) {
-                continue;
-            }
             // bitmap font
             if (ext === ".fnt") {
                 const buf = await readFileAsync(conf);
@@ -71,41 +67,44 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
                         stream.stop();
                     });
                 }
-                const img = await readFileAsync(join(dirname(conf), imageName));
+                const imgPath = join(dirname(conf), imageName);
                 const imgExt = extname(imageName);
-                context.compilation.assets[key + imgExt] = {
-                    size: () => img.length,
-                    source: () => img
-                };
-                if (assets["bitmapFont"] === undefined) {
-                    assets["bitmapFont"] = {};
-                }
-                assets["bitmapFont"][key] = {
+                _.set(assets, ["bitmapFont", key], {
                     args: [key + imgExt, key + ".fnt"]
-                };
+                });
+                if (context.isChanged(imgPath)) {
+                    const img = await readFileAsync(imgPath);
+                    context.compilation.assets[key + imgExt] = {
+                        size: () => img.length,
+                        source: () => img
+                    };
+                }
             }
             else if (ext === ".css") {
-                const css = await readFileAsync(conf);
-
-                if (assets["webfont"] === undefined) {
-                    assets["webfont"] = {};
-                }
-                context.compilation.assets[key + ".css"] = {
-                    size: () => css.length,
-                    source: () => css
-                };
-                assets["webfont"][key] = {
+                _.set(assets, ["webfont", key], {
                     args: {
                         custom: {
                             families: [key],
                             urls: [key + ".css"]
                         }
                     }
-                };
+                });
+                if (context.isChanged(conf)) {
+                    const css = await readFileAsync(conf);
+
+                    context.compilation.assets[key + ".css"] = {
+                        size: () => css.length,
+                        source: () => css
+                    };
+                }
             }
         }
         else if (isBitmap(conf)) {
             const cacheKey = `font_${key}`;
+            const [imageName, fontInfoName] = [key + ".png", key + ".fnt"];
+            _.set(assets, ["bitmapFont", "key"], {
+                args: [imageName, fontInfoName]
+            });
             if (_.isEqual(context.cache[cacheKey], conf)) {
                 continue;
             }
@@ -145,7 +144,6 @@ ${JSON.stringify(conf)}`);
             });
             const bins = pack.pack(requests);
             const canvas = new Canvas(pack.w + conf.gap, pack.h + conf.gap);
-            const [imageName, fontInfoName] = [key + ".png", key + ".fnt"];
             const fntInfo = [`<font><info face="${font.family}" size="${font.size}" bold="0" italic="0" charset="" unicode="" stretchH="100" smooth="1" aa="1" padding="${conf.gap},${conf.gap},${conf.gap},${conf.gap}" spacing="0,0" outline="0"/><common lineHeight="${lineHeight}" base="0" scaleW="${pack.w + conf.gap * 2}" scaleH="${pack.h + conf.gap * 2}" pages="1" packed="0"/><pages><page id="0" file="${imageName}"/></pages><chars count="${bins.length}">`];
             for (const bin of bins) {
                 const ch = chars[bin.id as number];
@@ -154,12 +152,6 @@ ${JSON.stringify(conf)}`);
             }
             fntInfo.push("</chars></font>");
             const imageBlob = canvas.blob(ImageFormat.PNG);
-            if (assets["bitmapFont"] === undefined) {
-                assets["bitmapFont"] = {};
-            }
-            assets["bitmapFont"][key] = {
-                args: [imageName, fontInfoName]
-            };
             context.compilation.assets[imageName] = {
                 size: () => imageBlob.length,
                 source: () => imageBlob
@@ -172,12 +164,9 @@ ${JSON.stringify(conf)}`);
         }
         else {
             // webfont
-            if (assets["webfont"] === undefined) {
-                assets["webfont"] = {};
-            }
-            assets["webfont"][key] = {
+            _.set(assets, ["webfont", key], {
                 args: conf
-            };
+            });
         }
     }
 
