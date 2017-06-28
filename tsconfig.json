@@ -9,7 +9,12 @@
         "noImplicitAny": true,
         "sourceMap": true,
         "declaration": true,
-        "baseUrl": "local_types"
+        "baseUrl": "local_types",
+        "lib": [
+            "es5",
+            "es2015.promise",
+            "dom"
+        ]
     },
     "include": [
         "src/**/*"

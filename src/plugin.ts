@@ -8,11 +8,7 @@ import { v4 as uuidV4 } from "uuid";
 import { isAbsolute } from "path";
 import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext } from "./option";
-import { processImages } from "./processImages";
-import { processJson } from "./processJson";
 import { generateEntry } from "./entryGenerator";
-import { processFonts } from "./processFont";
-import { processAudio} from "./processAudio";
 
 // for shader
 types["frag"] = "application/shader";
@@ -126,16 +122,22 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         debug("begin process assets");
         let files: [FilesByType, Assets] = [fileByType, _.cloneDeep(fileByType)];
         if (this.option.makeAtlas) {
+            const { processImages } = await import("./processImages");
             files = await processImages(
                 this, this.option, files
             );
         }
         if (this.option.mergeJson) {
+            const { processJson } = await import("./processJson");
             files = await processJson(this, files);
         }
         const fonts = await this.option.fonts();
-        files = await processFonts(this, fonts, files);
+        if (fonts != null) {
+            const { processFonts } = await import("./processFont");
+            files = await processFonts(this, fonts, files);
+        }
         if (this.option.audioSprite) {
+            const { processAudio } = await import("./processAudio");
             files = await processAudio(this, files);
         }
         const copies = _.flatten(
