@@ -100,7 +100,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
             });
         } catch (e) {
             reject(e);
-        };
+        }
     })));
 
     return [toCopy, assets];

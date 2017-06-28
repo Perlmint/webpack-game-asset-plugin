@@ -14,7 +14,7 @@ export interface File {
     ext: string;
     outFile: string | string[];
     srcFile: string;
-};
+}
 
 /**
  * @hidden
@@ -123,7 +123,7 @@ export interface GameAssetPluginOption {
      * @see [[LocalFontConf]]
      */
     fonts?: string;
-};
+}
 
 /**
  * Webfont config - see [webfontloader](https://www.npmjs.com/package/webfontloader)
@@ -137,7 +137,7 @@ export interface WebFontConf {
     typekit?: Typekit;
     fontdeck?: Fontdeck;
     monotype?: Monotype;
-};
+}
 /**
  * file file path - `.ttf` file or `.fnt` file
  */
@@ -202,7 +202,7 @@ export interface BitmapFontConf {
      * margin for each characters
      */
     gap: number;
-};
+}
 
 /**
  * @hidden
@@ -315,16 +315,18 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         atlasOption: {
             padding: pubOption.padding
         },
-        entryOption: () => readFileAsync(
-            pubOption.entryOption
-        ).then(
-            buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
-        ),
+        entryOption() {
+            return readFileAsync(
+                pubOption.entryOption
+            ).then(
+                buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
+            );
+        },
         mergeJson: pubOption.mergeJson || false,
         audioSprite: pubOption.audioSprite || false,
-        fonts: () => {
+        fonts() {
             if (pubOption.fonts == null) {
-                return bb.resolve([]);
+                return bb.resolve(null);
             }
 
             return readFileAsync(
@@ -334,7 +336,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
             );
         }
     } as InternalOption;
-};
+}
 
 /**
  * @hidden
@@ -345,4 +347,4 @@ export interface ProcessContext {
     cache: { [key: string]: any };
 
     isChanged(file: string): boolean;
-};
+}
