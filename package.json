@@ -35,6 +35,7 @@
     "@types/webfontloader": "^1.6.28",
     "@types/webpack": "^2.2.12",
     "@types/xml2js": "0.0.33",
+    "tslint": "^5.4.3",
     "typescript": "^2.4.1"
   },
   "dependencies": {
