@@ -45,13 +45,20 @@ export async function processImages(context: ProcessContext, option: InternalOpt
 
     await bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
         try {
+            if (source.length <= 1) {
+                for (const file of source) {
+                    toCopy["image"][file[0]] = file[1];
+                }
+                resolve();
+                return;
+            }
             const [atlas, info] = [".png", ".json"].map(postfix => tmpFile({
                 postfix,
                 discardDescriptor: true
             }));
             const imgSrcs = _.fromPairs(
                 source.map(
-                    src => [localJoinPath(context.context, src[1].srcFile), src[0]]
+                    src => [src[1].srcFile, src[0]]
                 )
             );
 

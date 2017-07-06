@@ -313,18 +313,20 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
 
                             const lastComponent = _.last(path);
                             const srcFile = localJoinPath(fileDir, ptr);
-                            const name = localRelativePath(this.context, srcFile).replace(/\\/g, "/");
+                            const outFile = localRelativePath(this.context, srcFile).replace(/\\/g, "/");
+                            const ext = extname(outFile);
+                            const name = outFile.replace(ext, "");
                             parent[lastComponent] = name;
-                            if (allFiles[name] === undefined) {
-                                allFiles[name] = {
+                            if (allFiles[srcFile] === undefined) {
+                                allFiles[srcFile] = {
                                     name,
-                                    ext: extname(parent[lastComponent]),
+                                    ext,
                                     srcFile,
-                                    outFile: name
+                                    outFile
                                 };
                             }
 
-                            this.refAssetCache[key].push(allFiles[name]);
+                            this.refAssetCache[key].push(allFiles[srcFile]);
                         }
                     }
                     catch (e) {

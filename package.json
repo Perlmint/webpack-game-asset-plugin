@@ -1,6 +1,6 @@
 {
   "name": "webpack-game-asset-plugin",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "webpack plugin for HTML5 game asset",
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
