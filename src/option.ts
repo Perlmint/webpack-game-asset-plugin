@@ -14,7 +14,39 @@ export interface File {
     ext: string;
     outFile: string | string[];
     srcFile: string;
+    data?: string;
+    xrefs?: string[];
+    query?: {[key: string]: string};
 }
+
+/**
+ * @hidden
+ */
+export interface Module {
+    context: string;
+    userRequest?: string;
+    resource: string;
+    loaders: {
+        loader: string
+    }[];
+}
+
+/**
+ * @hidden
+ */
+export interface Chunk {
+    modules: Module[];
+}
+
+/**
+ * @hidden
+ */
+export type Compilation = wp.Compilation & {
+    _game_asset_: {
+        [key: string]: File
+    };
+    chunks: Chunk[];
+};
 
 /**
  * @hidden
@@ -119,10 +151,17 @@ export interface GameAssetPluginOption {
      *
      * webfonts, bitmapfont, others...
      * @see [[WebFontConf]]
-     * @sse [[BitmapFontConf]]
+     * @see [[BitmapFontConf]]
      * @see [[LocalFontConf]]
      */
     fonts?: string;
+    /**
+     * game-asset loader reference preset
+     *
+     * { [name]: JSONPath } object
+     */
+    refPresets?: { [key: string]: string };
+    collectAll: boolean;
 }
 
 /**
@@ -233,7 +272,9 @@ export interface InternalOption {
     };
     entryOption(): bb<EntryOption>;
     mergeJson: boolean;
+    refPresets: { [key: string]: string };
     fonts: () => bb<Fonts>;
+    collectAll: boolean;
 }
 
 /**
@@ -334,7 +375,9 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
             ).then(
                 buf => JSON.parse(buf.toString("utf-8"))
             );
-        }
+        },
+        refPresets: pubOption.refPresets || {},
+        collectAll: false
     } as InternalOption;
 }
 

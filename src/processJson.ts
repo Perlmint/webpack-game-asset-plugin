@@ -28,11 +28,18 @@ export async function processJson(context: ProcessContext, files: [FilesByType, 
 
     const data = await bb.map(
         keys(jsonFiles),
-        filename => readFileAsync(join(context.context, jsonFiles[filename].srcFile)).then(
-            buf => buf.toString("utf-8")
-        ).then<[string, any]>(
-            data => [filename, JSON.parse(data)]
-        )
+        async (filename) => {
+            let data: string;
+            if (jsonFiles[filename].data) {
+                 data = jsonFiles[filename].data;
+            }
+            else {
+                data = await readFileAsync(join(context.context, jsonFiles[filename].srcFile)).then(
+                    buf => buf.toString("utf-8")
+                );
+            }
+            return [filename, JSON.parse(data)];
+        }
     );
     const merged = await fromPairs(data);
     const stringified = JSON.stringify(merged);
