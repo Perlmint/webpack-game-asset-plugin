@@ -17,11 +17,10 @@
   "devDependencies": {
     "@types/audiosprite": "^0.6.0",
     "@types/bluebird": "^3.5.4",
-    "@types/cheerio": "^0.22.1",
+    "@types/cheerio": "^0.22.2",
     "@types/clean-css": "^3.4.30",
     "@types/debug": "0.0.29",
     "@types/dot": "^1.1.1",
-    "@types/file-type": "0.0.2",
     "@types/fluent-ffmpeg": "^2.1.1",
     "@types/glob": "^5.0.30",
     "@types/gm": "^1.17.30",
@@ -37,8 +36,8 @@
     "@types/uuid": "^3.0.0",
     "@types/webfontloader": "^1.6.28",
     "@types/webpack": "^2.2.12",
-    "@types/xml2js": "0.0.33",
-    "tslint": "^5.4.3",
+    "@types/xml2js": "^0.4.0",
+    "tslint": "^5.5.0",
     "typescript": "^2.4.1"
   },
   "dependencies": {
@@ -46,7 +45,6 @@
     "cheerio": "^0.22.0",
     "clean-css": "^4.1.4",
     "debug": "^2.6.8",
-    "file-type": "^4.3.0",
     "fluent-ffmpeg": "^2.1.2",
     "glob": "^7.1.2",
     "html-minifier": "^3.5.2",
@@ -65,5 +63,8 @@
     "node-sprite-generator": "^0.10.2",
     "stream-buffers": "^3.0.1",
     "xml2js": "^0.4.17"
+  },
+  "peerDependencies": {
+    "webpack": ">=2.4"
   }
 }
