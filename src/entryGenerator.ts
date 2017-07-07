@@ -300,7 +300,7 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
         $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
 
         if (option.offline !== undefined) {
-            $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js"); }</script>`);
+            $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js").catch(() => {}); }</script>`);
             const params: {[key: string]: string} = {
                 title: option.title,
                 prefix,
