@@ -162,7 +162,11 @@ export interface GameAssetPluginOption {
      */
     refPresets?: { [key: string]: string };
     collectAll: boolean;
+
+    audioEncode?: AudioCodec[];
 }
+
+export type AudioCodec = "ogg" | "m4a" | "mp3" | "ac3";
 
 /**
  * Webfont config - see [webfontloader](https://www.npmjs.com/package/webfontloader)
@@ -275,6 +279,7 @@ export interface InternalOption {
     refPresets: { [key: string]: string };
     fonts: () => bb<Fonts>;
     collectAll: boolean;
+    audioEncode: string[];
 }
 
 /**
@@ -377,7 +382,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
             );
         },
         refPresets: pubOption.refPresets || {},
-        collectAll: false
+        collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
+        audioEncode: pubOption.audioEncode || []
     } as InternalOption;
 }
 
@@ -388,6 +394,7 @@ export interface ProcessContext {
     compilation: wp.Compilation;
     context: string;
     cache: { [key: string]: any };
+    option: InternalOption;
 
     isChanged(file: string): boolean;
 }

@@ -28,7 +28,7 @@ interface ParticleJson {
 }
 
 export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
-    private option: InternalOption;
+    public option: InternalOption;
     /**
      * @hidden
      */
@@ -167,7 +167,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             const { processFonts } = await import("./processFont");
             files = await processFonts(this, fonts, files);
         }
-        if (this.option.audioSprite) {
+        if (this.option.audioSprite || this.option.audioEncode) {
             const { processAudio } = await import("./processAudio");
             files = await processAudio(this, files);
         }
