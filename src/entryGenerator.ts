@@ -297,7 +297,7 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
         }
     }).then(() => {
         $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
-        $("body").append(`<script src="${prefix}${entryJS}" onload="document.getElementById('wait_script').remove()"></script>`);
+        $("body").append(`<script src="${prefix}${entryJS}" onload="var node = document.getElementById('wait_script'); if (node.remove) { node.remove(); } else { node.removeNode(true); }"></script>`);
 
         if (option.offline !== undefined) {
             $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js").catch(() => {}); }</script>`);
