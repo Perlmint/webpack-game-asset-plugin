@@ -53,18 +53,21 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
                     return file.outFile;
                 }
 
-                const outFile = tmpFile({
-                    postfix: "." + codec,
-                    detachDescriptor: true
-                });
-                return new bb<string>(resolve => ffmpeg(file.srcFile).save(outFile.name).on("end", async () => {
-                    const outData = await readFileAsync(outFile.name);
-                    context.compilation.assets[file.name + "." + codec] = {
-                        size: () => outData.length,
-                        source: () => outData
-                    };
-                    resolve(file.name + "." + codec);
-                }));
+                if (context.isChanged(file.srcFile)) {
+                    const outFile = tmpFile({
+                        postfix: "." + codec,
+                        detachDescriptor: true
+                    });
+                    await new bb<string>(resolve => ffmpeg(file.srcFile).save(outFile.name).on("end", async () => {
+                        const outData = await readFileAsync(outFile.name);
+                        context.compilation.assets[file.name + "." + codec] = {
+                            size: () => outData.length,
+                            source: () => outData
+                        };
+                        resolve();
+                    }));
+                }
+                return file.name + "." + codec;
             });
 
             assets["audio"][file.name] = {
