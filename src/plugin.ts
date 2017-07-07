@@ -86,7 +86,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 const assets = _.clone(compilation._game_asset_) || {};
                 for (const chunk of compilation.chunks) {
                     for (const module of chunk.modules) {
-                        if (module.userRequest && _.find(module.loaders, loader => loader.loader === GameAssetPlugin.loaderPath) != null) {
+                        if (module.userRequest && _.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) != null) {
                             if (this.assetCache[module.resource]) {
                                 assets[module.resource] = this.assetCache[module.resource];
                             }

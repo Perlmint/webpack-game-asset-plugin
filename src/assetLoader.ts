@@ -5,7 +5,7 @@ import { Compilation } from "./option";
 import { localJoinPath } from "./util";
 import * as loaderUtils from "loader-utils";
 
-export default function(this: any, content: Buffer) {
+export default function(this: wp.loader.LoaderContext, content: Buffer) {
     const query: {[key: string]: string} = loaderUtils.getOptions(this) || {};
     const path = posix.normalize(relative(this._compiler.context, this.resourcePath)).replace(/\\/g, "/");
     const ext = extname(path);
