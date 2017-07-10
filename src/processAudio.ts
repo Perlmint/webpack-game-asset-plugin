@@ -50,7 +50,7 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
             let encodeTargets = context.option.audioEncode;
             const originalCodec = file.ext.replace(".", "");
             const originalCodecIndex = _.indexOf(encodeTargets, originalCodec);
-            if (originalCodecIndex !== -1) {
+            if (originalCodecIndex > 0) {
                 encodeTargets = _.clone(encodeTargets);
                 encodeTargets.splice(originalCodecIndex, 1);
                 encodeTargets.unshift(originalCodec);
