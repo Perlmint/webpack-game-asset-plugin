@@ -15,9 +15,14 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
     assets["audio"] = {};
     assets["audioSprite"] = {};
     if (context.option.audioSprite) {
+        if (!_.every(_.values(audios), file => !context.isChanged(file.srcFile))) {
+            assets["audioSprite"]["as"] = {
+                args: [context.cache["audiosprite"], "as.json"]
+            };
+        }
         const tmp = tmpDir();
         const audiosprite = await import("audiosprite");
-        return new bb<[FilesByType, Assets]>((resolve, reject) => audiosprite(_.map(audios, audio => audio.srcFile), {
+        await new bb<[FilesByType, Assets]>((resolve, reject) => audiosprite(_.map(audios, audio => audio.srcFile), {
             output: localJoinPath(tmp.name, "as")
         }, (error, obj) => {
             if (error) {
@@ -41,7 +46,9 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
                 args: [obj.resources, "as.json"]
             };
 
-            resolve([toCopy, assets]);
+            context.cache["audiosprite"] = obj.resources;
+
+            resolve();
         }));
     }
     else {
@@ -82,7 +89,7 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
                 args: converteds
             };
         }
-
-        return [toCopy, assets];
     }
+
+    return [toCopy, assets];
 }
