@@ -47,7 +47,15 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
     else {
         const ffmpeg = await import("fluent-ffmpeg");
         for (const file of _.values(audios)) {
-            const converteds = await bb.map(context.option.audioEncode, async codec => {
+            let encodeTargets = context.option.audioEncode;
+            const originalCodec = file.ext.replace(".", "");
+            const originalCodecIndex = _.indexOf(encodeTargets, originalCodec);
+            if (originalCodecIndex !== -1) {
+                encodeTargets = _.clone(encodeTargets);
+                encodeTargets.splice(originalCodecIndex, 1);
+                encodeTargets.unshift(originalCodec);
+            }
+            const converteds = await bb.map(encodeTargets, async codec => {
                 if (file.ext === "." + codec) {
                     toCopy["audio"][file.name] = file;
                     return file.outFile;
