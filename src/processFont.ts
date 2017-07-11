@@ -3,11 +3,7 @@ import * as _ from "lodash";
 import { extname, dirname, join } from "path";
 import { FilesByType, Assets, File, isBitmap, Fonts, ProcessContext } from "./option";
 import { debug, readFileAsync, parseXMLString } from "./util";
-import * as xml2js from "xml2js";
 import { createInterface } from "readline";
-import { ReadableStreamBuffer } from "stream-buffers";
-import { BitmapFont, Canvas, ImageFormat } from "bitmapfont";
-import * as ShelfPack from "@mapbox/shelf-pack";
 
 /**
  * @hidden
@@ -27,6 +23,7 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
                 let imageName = "";
 
                 try {
+                    const xml2js = await import("xml2js");
                     const xml = await parseXMLString(buf);
                     imageName = xml.font.pages[0].page[0]["$"].file;
                     const ext = extname(imageName);
@@ -40,6 +37,7 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
                     };
                 }
                 catch (e) {
+                    const { ReadableStreamBuffer } = await import("stream-buffers");
                     imageName = await new bb<string>(resolve => {
                         const stream = new ReadableStreamBuffer();
                         stream.put(buf);
@@ -100,6 +98,8 @@ export async function processFonts(context: ProcessContext, fonts: Fonts, files:
             }
         }
         else if (isBitmap(conf)) {
+            const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
+            const ShelfPack = await import("@mapbox/shelf-pack");
             const cacheKey = `font_${key}`;
             const [imageName, fontInfoName] = [key + ".png", key + ".fnt"];
             _.set(assets, ["bitmapFont", key], {

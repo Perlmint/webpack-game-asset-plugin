@@ -45,7 +45,7 @@
     "cheerio": "^0.22.0",
     "clean-css": "^4.1.4",
     "debug": "^2.6.8",
-    "fluent-ffmpeg": "^2.1.2",
+    "dot": "^1.1.2",
     "glob": "^7.1.2",
     "html-minifier": "^3.5.2",
     "jsonpath": "^0.2.11",
@@ -59,7 +59,7 @@
     "@mapbox/shelf-pack": "^3.0.0",
     "audiosprite": "^0.6.0",
     "bitmapfont": "^0.1.0",
-    "dot": "^1.1.2",
+    "fluent-ffmpeg": "^2.1.2",
     "node-sprite-generator": "^0.10.2",
     "stream-buffers": "^3.0.1",
     "xml2js": "^0.4.17"

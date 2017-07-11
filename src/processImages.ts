@@ -1,7 +1,6 @@
 import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import * as nsg from "node-sprite-generator";
 import { InternalOption, FilesByType, File, Assets, ProcessContext, AtlasMapType } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
@@ -43,7 +42,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
         }
     });
 
-    await bb.all(_.map(sources, (source, outName) => new bb((resolve, reject) => {
+    await bb.all(_.map(sources, (source, outName) => new bb(async (resolve, reject) => {
         try {
             if (source.length <= 1) {
                 for (const file of source) {
@@ -61,6 +60,8 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                     src => [src[1].srcFile, src[0]]
                 )
             );
+
+            const nsg = await import("node-sprite-generator");
 
             nsg({
                 src: _.keys(imgSrcs),
