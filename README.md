@@ -24,6 +24,29 @@ new assetPlugin({
 })
 ```
 
+## Optional Depedencies
+
+### bitmapfont generation
+
+- @mapbox/shelf-pack
+- bitmapfont
+- xml2js
+- stream-buffers
+
+### texture packing
+
+- node-sprite-generator
+- node-sprite-generator composer
+  - gm
+
+### making audiosrptie
+
+- audiosprite
+
+### audio encode
+
+- fluent-ffmpeg
+
 ## option
 
 see [typedoc](https://perlmint.github.io/webpack-game-asset-plugin/index.html)
