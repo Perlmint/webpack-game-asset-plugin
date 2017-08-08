@@ -27,6 +27,13 @@ interface ParticleJson {
     image?: string;
 }
 
+/**
+ * @hidden
+ */
+function isOldModule(module: wp.Module): module is wp.OldModule {
+    return (module as wp.OldModule).loaders !== undefined;
+}
+
 export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     public option: InternalOption;
     /**
@@ -76,6 +83,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     }
 
     private assetCache: { [key: string]: File } = {};
+    private assetsMap: { [key: string]: string | string[] } = {};
     private refAssetCache: { [key: string]: File[] } = {};
 
     private async emit(compiler: wp.Compiler, compilation: Compilation, callback: (err?: Error) => void): bb<void> {
@@ -85,13 +93,22 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             if (!this.option.collectAll) {
                 const assets = _.clone(compilation._game_asset_) || {};
                 for (const chunk of compilation.chunks) {
-                    for (const module of chunk.modules) {
-                        if (module.userRequest && _.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) != null) {
-                            if (this.assetCache[module.resource]) {
-                                assets[module.resource] = this.assetCache[module.resource];
-                            }
+                    chunk.forEachModule(module => {
+                        if (!module.userRequest) {
+                            return;
                         }
-                    }
+                        if (!isOldModule(module)) {
+                            return;
+                        }
+                        if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
+                            return;
+                        }
+                        if (!this.assetCache[module.resource]) {
+                            return;
+                        }
+
+                        assets[module.resource] = this.assetCache[module.resource];
+                    });
                 }
                 files = await this.extendFiles(assets);
                 for (const assetKey of _.keys(assets)) {
@@ -103,6 +120,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             }
             const fileByType = await this.classifyFiles(files);
             const assets = await this.processAssets(fileByType);
+            await this.generateListForModule(compilation);
             await this.generateList(assets);
             await this.generateEntry();
             callback();
@@ -147,6 +165,14 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         this.entryName = compiler.options.output.filename;
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("after-emit", this.afterEmit.bind(this));
+        compiler.plugin("normal-module-factory", nmf => {
+            nmf.plugin("before-resolve", (result: any, callback: any) => {
+                if (result.request === "webpack-game-asset-plugin/dist/helper") {
+                    result.request = `game-asset?info=${result.contextInfo.issuer}!${result.request}`;
+                }
+                return callback(null, result);
+            });
+        });
     }
 
     private async processAssets(fileByType: FilesByType): bb<Assets> {
@@ -215,6 +241,23 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             source: () => listData,
         };
         return bb.resolve();
+    }
+
+    private async generateListForModule(compilation: Compilation) {
+        _.forEach(compilation._referenced_modules_, (assets: string[], hash: string) => {
+            const assetsInfo = _.uniq(_.concat(assets.map(asset => this.assetCache[asset]), _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], [])))));
+            _.map(assetsInfo, asset => _.defaultTo(this.assetsMap[asset.name], asset.outFile));
+            const assetsJson = {};
+            const contentStr = JSON.stringify(assetsJson);
+            compilation.assets[hash + ".json"] = {
+                size() {
+                    return contentStr.length;
+                },
+                source() {
+                    return contentStr;
+                }
+            };
+        });
     }
 
     private async collectFiles(): bb<File[]> {

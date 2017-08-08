@@ -75,6 +75,9 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 }
             }, async (e): bb<void> => {
                 if (e == null) {
+                    for (const src of source) {
+                        context.assetsMap[src[0]] = ["spritesheet", outName + ".json"];
+                    }
                     try {
                         await bb.all(
                             _.map<[SynchrounousResult , string], bb<void>>(

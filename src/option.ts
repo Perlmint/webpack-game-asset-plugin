@@ -34,18 +34,13 @@ export interface Module {
 /**
  * @hidden
  */
-export interface Chunk {
-    modules: Module[];
-}
-
-/**
- * @hidden
- */
 export type Compilation = wp.Compilation & {
     _game_asset_: {
         [key: string]: File
     };
-    chunks: Chunk[];
+    _referenced_modules_: {
+        [key: string]: string[]
+    };
 };
 
 /**
@@ -395,6 +390,7 @@ export interface ProcessContext {
     context: string;
     cache: { [key: string]: any };
     option: InternalOption;
+    assetsMap: { [key: string]: string | string[] };
 
     isChanged(file: string): boolean;
 }
