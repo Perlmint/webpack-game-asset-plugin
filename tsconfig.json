@@ -2,8 +2,6 @@
     "compilerOptions": {
         "module": "commonjs",
         "target": "es5",
-        "rootDir": "src",
-        "outDir": "dist",
         "allowJs": false,
         "removeComments": false,
         "noImplicitAny": true,
@@ -16,7 +14,11 @@
             "dom"
         ]
     },
-    "include": [
-        "src/**/*"
+    "exclude": [
+        "node_modules",
+        "local_types",
+        "types",
+        "template",
+        "docs"
     ]
 }

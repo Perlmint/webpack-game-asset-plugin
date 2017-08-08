@@ -45,6 +45,10 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
             assets["audioSprite"]["as"] = {
                 args: [obj.resources, "as.json"]
             };
+            _.forEach(audios, audio => {
+                audio.outType = "audioSprite";
+                audio.outFile = ["as.json", ...obj.resources];
+            });
 
             context.cache["audiosprite"] = obj.resources;
 
@@ -65,7 +69,7 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
             const converteds = await bb.map(encodeTargets, async codec => {
                 if (file.ext === "." + codec) {
                     toCopy["audio"][file.name] = file;
-                    return file.outFile;
+                    return typeof file.outFile === "string" ? file.outFile : file.outFile[0];
                 }
 
                 if (context.isChanged(file.srcFile)) {
@@ -88,6 +92,8 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
             assets["audio"][file.name] = {
                 args: converteds
             };
+            file.outType = "audio";
+            file.outFile = converteds;
         }
     }
 

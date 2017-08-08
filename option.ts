@@ -15,7 +15,8 @@ export interface File {
     outFile: string | string[];
     srcFile: string;
     data?: string;
-    xrefs?: string[];
+    type?: string;
+    outType?: string;
     query?: {[key: string]: string};
 }
 
@@ -34,18 +35,13 @@ export interface Module {
 /**
  * @hidden
  */
-export interface Chunk {
-    modules: Module[];
-}
-
-/**
- * @hidden
- */
 export type Compilation = wp.Compilation & {
     _game_asset_: {
         [key: string]: File
     };
-    chunks: Chunk[];
+    _referenced_modules_: {
+        [key: string]: string[]
+    };
 };
 
 /**

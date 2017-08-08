@@ -26,7 +26,7 @@ function minifyHTML(html: string) {
  * @hidden
  */
 function templateLoader(filename: string) {
-    return readFileSync(join(__dirname, "../template/", filename), "utf-8");
+    return readFileSync(join(__dirname, "template/", filename), "utf-8");
 }
 
 const [
