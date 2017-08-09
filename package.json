@@ -39,6 +39,7 @@
     "@types/webpack": "^2.2.12",
     "@types/xml2js": "^0.4.0",
     "tslint": "^5.5.0",
+    "typedoc": "^0.8.0",
     "typescript": "^2.4.1"
   },
   "dependencies": {
