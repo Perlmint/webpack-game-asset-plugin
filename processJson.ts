@@ -34,7 +34,7 @@ export async function processJson(context: ProcessContext, files: [FilesByType, 
                  data = jsonFiles[filename].data;
             }
             else {
-                data = await readFileAsync(join(context.context, jsonFiles[filename].srcFile)).then(
+                data = await readFileAsync(context.toAbsPath(jsonFiles[filename].srcFile)).then(
                     buf => buf.toString("utf-8")
                 );
             }
