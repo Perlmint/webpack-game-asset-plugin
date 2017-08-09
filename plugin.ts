@@ -13,6 +13,7 @@ import * as jsonpath from "jsonpath";
 
 // for shader
 types["frag"] = "application/shader";
+types["fnt"] = "font";
 
 /**
  * @hidden
@@ -187,10 +188,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             const { processJson } = await import("./processJson");
             files = await processJson(this, files);
         }
-        const fonts = await this.option.fonts();
-        if (fonts != null) {
+        if (files[0]["font"]) {
             const { processFonts } = await import("./processFont");
-            files = await processFonts(this, fonts, files);
+            files = await processFonts(this, files);
         }
         if (this.option.audioSprite || this.option.audioEncode) {
             const { processAudio } = await import("./processAudio");
