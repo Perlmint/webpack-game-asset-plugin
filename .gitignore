@@ -44,3 +44,8 @@ typings
 
 # built
 dist
+
+*.js
+*.js.map
+*.d.ts
+!loader.d.ts

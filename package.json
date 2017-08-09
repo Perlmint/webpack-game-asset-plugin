@@ -1,9 +1,9 @@
 {
   "name": "webpack-game-asset-plugin",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "webpack plugin for HTML5 game asset",
-  "main": "dist/plugin.js",
-  "types": "dist/plugin.d.ts",
+  "main": "plugin.js",
+  "types": "plugin.d.ts",
   "scripts": {
     "build:doc": "typedoc --out docs --target ES5 --module commonjs -p ./ --mode file --excludeNotExported --excludePrivate",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -26,6 +26,7 @@
     "@types/gm": "^1.17.30",
     "@types/html-minifier": "^1.1.30",
     "@types/jsonpath": "^0.1.29",
+    "@types/loader-utils": "^1.1.0",
     "@types/lodash": "^4.14.64",
     "@types/mapbox__shelf-pack": "^3.0.0",
     "@types/mime-types": "^2.1.0",
@@ -38,6 +39,7 @@
     "@types/webpack": "^2.2.12",
     "@types/xml2js": "^0.4.0",
     "tslint": "^5.5.0",
+    "typedoc": "^0.8.0",
     "typescript": "^2.4.1"
   },
   "dependencies": {

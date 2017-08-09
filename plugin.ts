@@ -13,6 +13,7 @@ import * as jsonpath from "jsonpath";
 
 // for shader
 types["frag"] = "application/shader";
+types["fnt"] = "font";
 
 /**
  * @hidden
@@ -25,6 +26,13 @@ const glob = bb.promisify<string[], string, _glob.IOptions>(_glob);
 interface ParticleJson {
     children?: ParticleJson[];
     image?: string;
+}
+
+/**
+ * @hidden
+ */
+function isOldModule(module: wp.Module): module is wp.OldModule {
+    return (module as wp.OldModule).loaders !== undefined;
 }
 
 export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
@@ -85,13 +93,22 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             if (!this.option.collectAll) {
                 const assets = _.clone(compilation._game_asset_) || {};
                 for (const chunk of compilation.chunks) {
-                    for (const module of chunk.modules) {
-                        if (module.userRequest && _.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) != null) {
-                            if (this.assetCache[module.resource]) {
-                                assets[module.resource] = this.assetCache[module.resource];
-                            }
+                    chunk.forEachModule(module => {
+                        if (!module.userRequest) {
+                            return;
                         }
-                    }
+                        if (!isOldModule(module)) {
+                            return;
+                        }
+                        if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
+                            return;
+                        }
+                        if (!this.assetCache[module.resource]) {
+                            return;
+                        }
+
+                        assets[module.resource] = this.assetCache[module.resource];
+                    });
                 }
                 files = await this.extendFiles(assets);
                 for (const assetKey of _.keys(assets)) {
@@ -103,6 +120,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             }
             const fileByType = await this.classifyFiles(files);
             const assets = await this.processAssets(fileByType);
+            await this.generateListForModule(compilation);
             await this.generateList(assets);
             await this.generateEntry();
             callback();
@@ -147,6 +165,14 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         this.entryName = compiler.options.output.filename;
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("after-emit", this.afterEmit.bind(this));
+        compiler.plugin("normal-module-factory", nmf => {
+            nmf.plugin("before-resolve", (result: any, callback: any) => {
+                if (result.request === "webpack-game-asset-plugin/helper") {
+                    result.request = `game-asset?info=${result.contextInfo.issuer}!${result.request}`;
+                }
+                return callback(null, result);
+            });
+        });
     }
 
     private async processAssets(fileByType: FilesByType): bb<Assets> {
@@ -162,10 +188,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             const { processJson } = await import("./processJson");
             files = await processJson(this, files);
         }
-        const fonts = await this.option.fonts();
-        if (fonts != null) {
+        if (files[0]["font"]) {
             const { processFonts } = await import("./processFont");
-            files = await processFonts(this, fonts, files);
+            files = await processFonts(this, files);
         }
         if (this.option.audioSprite || this.option.audioEncode) {
             const { processAudio } = await import("./processAudio");
@@ -215,6 +240,30 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             source: () => listData,
         };
         return bb.resolve();
+    }
+
+    private async generateListForModule(compilation: Compilation) {
+        _.forEach(compilation._referenced_modules_, (assets: string[], hash: string) => {
+            const assetsInfo = _.filter(_.uniq(_.concat(
+                assets.map(asset => this.assetCache[asset]),
+                _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
+            const assetsJson: { [key: string]: { [key: string]: string[] } } = {};
+            for (const asset of assetsInfo) {
+                if (assetsJson[asset.outType] === undefined) {
+                    assetsJson[asset.outType] = {};
+                }
+                assetsJson[asset.outType][asset.name] = typeof asset.outFile === "string" ? [asset.outFile] : asset.outFile;
+            }
+            const contentStr = JSON.stringify(assetsJson);
+            compilation.assets[hash + ".json"] = {
+                size() {
+                    return contentStr.length;
+                },
+                source() {
+                    return contentStr;
+                }
+            };
+        });
     }
 
     private async collectFiles(): bb<File[]> {
@@ -365,6 +414,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                     let cat = mime.split("/")[0];
                     if (cat === "application") {
                         cat = mime.split("/")[1];
+                    }
+                    file.type = cat;
+                    if (file.outType === undefined) {
+                        file.outType = cat;
                     }
 
                     return {

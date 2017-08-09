@@ -75,6 +75,10 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 }
             }, async (e): bb<void> => {
                 if (e == null) {
+                    for (const src of source) {
+                        src[1].outFile = [outName + ".png", outName + ".json"];
+                        src[1].outType = "atlas";
+                    }
                     try {
                         await bb.all(
                             _.map<[SynchrounousResult , string], bb<void>>(

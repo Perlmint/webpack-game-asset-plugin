@@ -15,7 +15,8 @@ export interface File {
     outFile: string | string[];
     srcFile: string;
     data?: string;
-    xrefs?: string[];
+    type?: string;
+    outType?: string;
     query?: {[key: string]: string};
 }
 
@@ -34,18 +35,13 @@ export interface Module {
 /**
  * @hidden
  */
-export interface Chunk {
-    modules: Module[];
-}
-
-/**
- * @hidden
- */
 export type Compilation = wp.Compilation & {
     _game_asset_: {
         [key: string]: File
     };
-    chunks: Chunk[];
+    _referenced_modules_: {
+        [key: string]: string[]
+    };
 };
 
 /**
@@ -146,15 +142,6 @@ export interface GameAssetPluginOption {
      * @default false
      */
     audioSprite?: boolean;
-    /**
-     * Configure file to include fonts
-     *
-     * webfonts, bitmapfont, others...
-     * @see [[WebFontConf]]
-     * @see [[BitmapFontConf]]
-     * @see [[LocalFontConf]]
-     */
-    fonts?: string;
     /**
      * game-asset loader reference preset
      *
@@ -277,7 +264,6 @@ export interface InternalOption {
     entryOption(): bb<EntryOption>;
     mergeJson: boolean;
     refPresets: { [key: string]: string };
-    fonts: () => bb<Fonts>;
     collectAll: boolean;
     audioEncode: string[];
 }
@@ -370,17 +356,6 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         },
         mergeJson: pubOption.mergeJson || false,
         audioSprite: pubOption.audioSprite || false,
-        fonts() {
-            if (pubOption.fonts == null) {
-                return bb.resolve(null);
-            }
-
-            return readFileAsync(
-                pubOption.fonts
-            ).then(
-                buf => JSON.parse(buf.toString("utf-8"))
-            );
-        },
         refPresets: pubOption.refPresets || {},
         collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
         audioEncode: pubOption.audioEncode || []
