@@ -372,4 +372,5 @@ export interface ProcessContext {
     option: InternalOption;
 
     isChanged(file: string): boolean;
+    toAbsPath(path: string): string;
 }

@@ -75,7 +75,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         this.startTime = Date.now();
     }
 
-    private toAbsPath(path: string) {
+    public toAbsPath(path: string) {
         if (isAbsolute(path)) {
             return path;
         }
@@ -209,6 +209,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 continue;
             }
             copied++;
+            console.log(copy.srcFile);
             const content = copy.data == null ? await readFileAsync(copy.srcFile) : copy.data;
             (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
                 outFile => this.compilation.assets[outFile] = {
