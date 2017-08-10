@@ -8,7 +8,7 @@ import { relative } from "path";
 /**
  * @hidden
  */
-export async function processAudio(context: ProcessContext, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
+export async function processAudio(context: ProcessContext, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     const audios = toCopy["audio"];
     toCopy["audio"] = {};

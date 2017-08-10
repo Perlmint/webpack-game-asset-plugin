@@ -29,7 +29,7 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
         const assetNames = _.map(referencedAssets, a => a.module.resource);
         hash.update(assetNames.join(""));
         const hashStr = hash.digest("hex");
-        defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[hashStr] = assetNames;
+        defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[hashStr] = refModule;
 
         return `module.exports = {
     RESOURCE_CONFIG_URL: "${hashStr}.json"

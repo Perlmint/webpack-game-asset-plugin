@@ -1,3 +1,4 @@
+import "es6-shim";
 import * as wp from "webpack";
 import * as nsg from "node-sprite-generator";
 import * as _glob from "glob";
@@ -10,6 +11,10 @@ import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statA
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext, Compilation } from "./option";
 import { generateEntry } from "./entryGenerator";
 import * as jsonpath from "jsonpath";
+
+if (Promise !== bb as any) {
+    Promise = bb as any;
+}
 
 // for shader
 types["frag"] = "application/shader";
@@ -68,9 +73,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         if (typeof option.atlasMap === "string") {
             this.configFiles.push(option.atlasMap);
         }
-        if (option.fonts) {
-            this.configFiles.push(option.fonts);
-        }
         this.option = publicOptionToprivate(option);
         this.startTime = Date.now();
     }
@@ -86,7 +88,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private assetCache: { [key: string]: File } = {};
     private refAssetCache: { [key: string]: File[] } = {};
 
-    private async emit(compiler: wp.Compiler, compilation: Compilation, callback: (err?: Error) => void): bb<void> {
+    private async emit(compiler: wp.Compiler, compilation: Compilation, callback: (err?: Error) => void): Promise<void> {
         this.compilation = compilation;
         try {
             let files: File[];
@@ -175,7 +177,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         });
     }
 
-    private async processAssets(fileByType: FilesByType): bb<Assets> {
+    private async processAssets(fileByType: FilesByType): Promise<Assets> {
         debug("begin process assets");
         let files: [FilesByType, Assets] = [fileByType, _.cloneDeep(fileByType)];
         if (this.option.makeAtlas) {
@@ -209,7 +211,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 continue;
             }
             copied++;
-            console.log(copy.srcFile);
             const content = copy.data == null ? await readFileAsync(copy.srcFile) : copy.data;
             (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
                 outFile => this.compilation.assets[outFile] = {
@@ -244,7 +245,41 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     }
 
     private async generateListForModule(compilation: Compilation) {
-        _.forEach(compilation._referenced_modules_, (assets: string[], hash: string) => {
+        const assetsForModule: { [key: string]: string[] } = {};
+        _.forEach(compilation._referenced_modules_, (module: wp.Module, hash: string) => {
+            assetsForModule[module.resource] = [];
+            const dependencies: [any, string][] = _.map(module.dependencies, dep => [dep, module.resource] as [any, string]);
+            const assets: string[] = [];
+            while (dependencies.length !== 0) {
+                const [dep, from] = dependencies.shift();
+                // ignore null module
+                if (dep.module == null) {
+                    continue;
+                }
+                // ignore helper
+                if (dep.request === "webpack-game-asset-plugin/helper") {
+                    continue;
+                }
+                // ignore other referenced module
+                if (_.find(compilation._referenced_modules_, m => m.resource === dep.module.resource) !== undefined) {
+                    continue;
+                }
+                // depedency is asset
+                if (_.some(dep.module.loaders, l => l.loader === GameAssetPlugin.loaderPath)) {
+                    assets.push(dep.module.resource);
+                    assetsForModule[from].push(dep.module.resource);
+                }
+                // already cached!
+                else if (assetsForModule[dep.module.resource]) {
+                    assets.push(...assetsForModule[dep.module.resource]);
+                }
+                // new normal module
+                else {
+                    assetsForModule[dep.module.resource] = [];
+                    dependencies.push(..._.map(dep.module.dependencies, d => [d, dep.module.resource] as [any, string]));
+                }
+            }
+
             const assetsInfo = _.filter(_.uniq(_.concat(
                 assets.map(asset => this.assetCache[asset]),
                 _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
@@ -267,7 +302,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         });
     }
 
-    private async collectFiles(): bb<File[]> {
+    private async collectFiles(): Promise<File[]> {
         debug("collect assets");
         const filesByRoot = await bb.map(this.option.assetRoots, async (root) => {
             const { src: srcRoot, out: outRoot } = root;
@@ -317,7 +352,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return prevTimestamp < curTimeStamp;
     }
 
-    private async extendFiles(allFiles: {[key: string]: File}): bb<File[]> {
+    private async extendFiles(allFiles: {[key: string]: File}): Promise<File[]> {
         const files = _.toPairs(allFiles);
         for (const kv of files)
         {
@@ -391,7 +426,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return _.values(allFiles);
     }
 
-    private async classifyFiles(files: File[]): bb<FilesByType> {
+    private async classifyFiles(files: File[]): Promise<FilesByType> {
         debug("classify collected files by mime-type");
         const cat_files = await bb.map(
             files,
@@ -454,7 +489,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return fileByType;
     }
 
-    private async generateEntry(): bb<void> {
+    private async generateEntry(): Promise<void> {
         const option = await this.option.entryOption();
         const deps = [option._path];
 

@@ -40,7 +40,7 @@ export type Compilation = wp.Compilation & {
         [key: string]: File
     };
     _referenced_modules_: {
-        [key: string]: string[]
+        [key: string]: wp.Module
     };
 };
 
