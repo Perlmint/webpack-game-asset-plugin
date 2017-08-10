@@ -141,7 +141,7 @@ async function modifyBitmapFontText(key: string, assets: Assets, context: Proces
 /**
  * @hidden
  */
-export async function processFonts(context: ProcessContext, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
+export async function processFonts(context: ProcessContext, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     const fonts = toCopy["font"];

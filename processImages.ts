@@ -8,7 +8,7 @@ import { stylesheet } from "./stylesheet";
 /**
  * @hidden
  */
-export async function processImages(context: ProcessContext, option: InternalOption, files: [FilesByType, Assets]): bb<[FilesByType, Assets]> {
+export async function processImages(context: ProcessContext, option: InternalOption, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     const images = toCopy["image"];
@@ -73,7 +73,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 layoutOptions: {
                     padding: option.atlasOption.padding || 0
                 }
-            }, async (e): bb<void> => {
+            }, async (e): Promise<void> => {
                 if (e == null) {
                     for (const src of source) {
                         src[1].outFile = [outName + ".png", outName + ".json"];
