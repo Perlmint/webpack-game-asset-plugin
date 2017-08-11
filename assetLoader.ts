@@ -49,7 +49,7 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
             };
         }
 
-        return `module.exports = { default: "${name}", path: "${outPath}" }`;
+        return `exports = module.exports = { default: "${name}", path: "${outPath}", __esModule: true }`;
     }
 }
 
