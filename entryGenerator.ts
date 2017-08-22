@@ -166,7 +166,7 @@ export interface EntryOption {
 /**
  * @hidden
  */
-export function generateEntry(prefix: string, entryJS: string, option: EntryOption) {
+export function generateEntry(prefix: string, entrypoints: string[], hash: string, option: EntryOption) {
     debug("Generate Entry html");
     const ret: {[key: string]: string | Buffer} = {};
     const android_manifest: any = {};
@@ -296,8 +296,25 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
             resolve();
         }
     }).then(() => {
-        $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
-        $("body").append(`<script src="${prefix}${entryJS}" onload="var node = document.getElementById('wait_script'); if (node.remove) { node.remove(); } else { node.removeNode(true); }"></script>`);
+        $("body").append(`<span id="wait_script${hash}"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
+        $("body").append(`<script id="loaderScript${hash}">
+let remainEntries${hash} = ${entrypoints.length};
+function entryLoaded${hash}() {
+    function removeNode(node) {
+        if (node.remove) {
+            node.remove();
+        } else {
+            node.removeNode(true);
+        }
+    }
+    if ((--remainEntries${hash}) === 0) {
+        removeNode(document.getElementById('wait_script${hash}'));
+        removeNode(document.getElementById('loaderScript${hash}'))
+    }
+}</script>`);
+        for (const entry of entrypoints) {
+            $("body").append(`<script src="${prefix}${entry}" onload="entryLoaded${hash}()"></script>`);
+        }
 
         if (option.offline !== undefined) {
             $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js").catch(() => {}); }</script>`);

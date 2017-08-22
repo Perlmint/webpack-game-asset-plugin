@@ -14,6 +14,7 @@ export interface File {
     ext: string;
     outFile: string | string[];
     srcFile: string;
+    hash: string;
     data?: string;
     type?: string;
     outType?: string;

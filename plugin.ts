@@ -7,7 +7,7 @@ import * as _ from "lodash";
 import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
 import { isAbsolute, extname, dirname, relative as localRelativePath } from "path";
-import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext, Compilation } from "./option";
 import { generateEntry } from "./entryGenerator";
 import * as jsonpath from "jsonpath";
@@ -124,7 +124,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             const assets = await this.processAssets(fileByType);
             await this.generateListForModule(compilation);
             await this.generateList(assets);
-            await this.generateEntry();
+            await this.generateEntry(compilation);
             callback();
         }
         catch (e) {
@@ -244,42 +244,19 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return bb.resolve();
     }
 
+    private referencedModules: { [key: string]: wp.Module} = {};
     private async generateListForModule(compilation: Compilation) {
         const assetsForModule: { [key: string]: string[] } = {};
-        _.forEach(compilation._referenced_modules_, (module: wp.Module, hash: string) => {
-            assetsForModule[module.resource] = [];
-            const dependencies: [any, string][] = _.map(module.dependencies, dep => [dep, module.resource] as [any, string]);
-            const assets: string[] = [];
-            while (dependencies.length !== 0) {
-                const [dep, from] = dependencies.shift();
-                // ignore null module
-                if (dep.module == null) {
-                    continue;
-                }
-                // ignore helper
-                if (dep.request === "webpack-game-asset-plugin/helper") {
-                    continue;
-                }
-                // ignore other referenced module
-                if (_.find(compilation._referenced_modules_, m => m.resource === dep.module.resource) !== undefined) {
-                    continue;
-                }
-                // depedency is asset
-                if (_.some(dep.module.loaders, l => l.loader === GameAssetPlugin.loaderPath)) {
-                    assets.push(dep.module.resource);
-                    assetsForModule[from].push(dep.module.resource);
-                }
-                // already cached!
-                else if (assetsForModule[dep.module.resource]) {
-                    assets.push(...assetsForModule[dep.module.resource]);
-                }
-                // new normal module
-                else {
-                    assetsForModule[dep.module.resource] = [];
-                    dependencies.push(..._.map(dep.module.dependencies, d => [d, dep.module.resource] as [any, string]));
-                }
+        const modules = _.flatten(_.map(compilation.chunks, chunk => chunk.getModules()));
+        this.referencedModules = Object.assign(this.referencedModules, compilation._referenced_modules_);
+        const removedModuleHash: string[] = [];
+        _.forEach(this.referencedModules, (module: wp.Module, hash: string) => {
+            if (!_.includes(modules, module)) {
+                removedModuleHash.push(hash);
+                return;
             }
-
+            assetsForModule[module.resource] = [];
+            const assets: string[] = collectDependentAssets(module, assetsForModule, GameAssetPlugin.loaderPath);
             const assetsInfo = _.filter(_.uniq(_.concat(
                 assets.map(asset => this.assetCache[asset]),
                 _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
@@ -300,6 +277,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 }
             };
         });
+
+        for (const hash of removedModuleHash) {
+            delete this.referencedModules[hash];
+        }
     }
 
     private async collectFiles(): Promise<File[]> {
@@ -402,10 +383,12 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                             const ext = extname(outFile);
                             const name = outFile.replace(ext, "");
                             parent[lastComponent] = name;
+                            const hash = await getFileHash("md5", srcFile);
                             if (allFiles[srcFile] === undefined) {
                                 allFiles[srcFile] = {
                                     name,
                                     ext,
+                                    hash: hash.digest("hex"),
                                     srcFile,
                                     outFile
                                 };
@@ -489,7 +472,18 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return fileByType;
     }
 
-    private async generateEntry(): Promise<void> {
+    private async generateEntry(compilation: wp.Compilation): Promise<void> {
+        const entrypoints = _.flatten<string>(_.map(compilation.entrypoints, (entrypoint: wp.EntryPoint, name) => _.map(entrypoint.chunks, (chunk: wp.Chunk) => {
+            const filenameTemplate = chunk.filenameTemplate ? chunk.filenameTemplate :
+                chunk.isInitial() ? compilation.outputOptions.filename :
+                compilation.outputOptions.chunkFilename;
+            const useChunkHash = !chunk.hasRuntime() || (compilation.mainTemplate.useChunkHash && compilation.mainTemplate.useChunkHash(chunk));
+            const path = compilation.getPath(filenameTemplate, {
+                noChunkHash: !useChunkHash,
+                chunk
+            });
+            return path;
+        })));
         const option = await this.option.entryOption();
         const deps = [option._path];
 
@@ -507,10 +501,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             return;
         }
 
-        const files = await generateEntry(this.publicPath, this.entryName , option);
+        const files = await generateEntry(this.publicPath, entrypoints, compilation.hash, option);
 
         _.forEach(files, (content, name) => {
-            this.compilation.assets[name] = {
+            compilation.assets[name] = {
                 size: () => content.length,
                 source: () => content
             };
