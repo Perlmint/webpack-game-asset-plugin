@@ -7,7 +7,7 @@ import * as _ from "lodash";
 import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
 import { isAbsolute, extname, dirname, relative as localRelativePath } from "path";
-import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets } from "./util";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets, getFileHash } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext, Compilation } from "./option";
 import { generateEntry } from "./entryGenerator";
 import * as jsonpath from "jsonpath";
@@ -113,8 +113,8 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                     });
                 }
                 files = await this.extendFiles(assets);
-                for (const assetKey of _.keys(assets)) {
-                    this.assetCache[assetKey] = assets[assetKey];
+                for (const file of files) {
+                    this.assetCache[this.toAbsPath(file.srcFile)] = file;
                 }
             }
             else {
@@ -179,7 +179,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
 
     private async processAssets(fileByType: FilesByType): Promise<Assets> {
         debug("begin process assets");
-        let files: [FilesByType, Assets] = [fileByType, _.cloneDeep(fileByType)];
+        let files: [FilesByType, Assets] = [fileByType, Object.assign({}, fileByType)];
         if (this.option.makeAtlas) {
             const { processImages } = await import("./processImages");
             files = await processImages(
@@ -419,10 +419,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                         return;
                     }
                     if (fileStat.isDirectory()) {
-                        return {
-                            cat: "dir",
-                            ...file
-                        };
+                        return Object.assign(file, {
+                            cat: "dir"
+                        });
                     }
 
                     const mime = lookup(file.ext);
@@ -439,10 +438,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                         file.outType = cat;
                     }
 
-                    return {
-                        cat,
-                        ...file
-                    };
+                    return Object.assign(file, {
+                        cat
+                    });
                 })
         );
         const groups = _.groupBy(_.filter(cat_files), file => file.cat);
