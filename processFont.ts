@@ -215,6 +215,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
         if (imageName !== null) {
             const imgPath = join(dirname(conf.srcFile), imageName);
             const imgExt = extname(imageName);
+            conf.outType = "bitmapFont";
             _.set(assets, ["bitmapFont", key], {
                 args: [key + imgExt, key + ".fnt"]
             });
