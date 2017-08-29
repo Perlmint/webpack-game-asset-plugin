@@ -46,7 +46,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
      * @hidden
      */
     public context: string;
-    private publicPath: string;
     private entryName: string;
     private fileDependencies: string[] = [];
     private newFileDependencies: string[] = [];
@@ -154,15 +153,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
 
     apply(compiler: wp.Compiler) {
         this.context = compiler.options.context;
-        this.publicPath = compiler.options.output.publicPath;
-        if (this.publicPath != null) {
-            if (_.last(this.publicPath) !== "/") {
-                this.publicPath += "/";
-            }
-        }
-        else {
-            this.publicPath = "";
-        }
         this.newFileDependencies = _.map(this.newFileDependencies, path => this.toAbsPath(path));
         this.entryName = compiler.options.output.filename;
         compiler.plugin("emit", this.emit.bind(this, compiler));
@@ -482,6 +472,17 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             });
             return path;
         })));
+
+        let publicPath: string = compilation.outputOptions.publicPath;
+        if (publicPath != null) {
+            if (_.last(publicPath) !== "/") {
+                publicPath += "/";
+            }
+        }
+        else {
+            publicPath = "";
+        }
+        publicPath = publicPath.replace("[hash]", compilation.hash);
         const option = await this.option.entryOption();
         const deps = [option._path];
 
@@ -499,7 +500,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             return;
         }
 
-        const files = await generateEntry(this.publicPath, entrypoints, compilation.hash, option);
+        const files = await generateEntry(publicPath, entrypoints, compilation.hash, option);
 
         _.forEach(files, (content, name) => {
             compilation.assets[name] = {
