@@ -333,7 +333,10 @@ function entryLoaded${hash}() {
         }
 
         if (option.offline !== undefined) {
-            $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js").catch(() => {}); }</script>`);
+            $("body").append(`<script>
+if ('serviceWorker' in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("${prefix}offline.js").catch(() => {});
+}</script>`);
             const params: {[key: string]: string} = {
                 title: option.title,
                 prefix,
