@@ -327,6 +327,7 @@ function entryLoaded${hash}() {
         removeNode(document.getElementById('loaderScript${hash}'))
     }
 }</script>`);
+        $("body").append(`<script>__webpack_public_path__="${prefix}"</script>`);
         for (const entry of entrypoints) {
             $("body").append(`<script src="${prefix}${entry}" onload="entryLoaded${hash}()"></script>`);
         }
