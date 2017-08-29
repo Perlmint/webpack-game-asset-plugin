@@ -10,6 +10,7 @@ import { tmpFile, readFileAsync, debug } from "./util";
 import * as CleanCSS from "clean-css";
 import { minify as minifyJS } from "uglify-js";
 import { minify as _minifyHTML } from "html-minifier";
+import * as color from "onecolor";
 
 /**
  * @hidden
@@ -127,6 +128,12 @@ export interface EntryOption {
      */
     backgroundColor?: string;
     /**
+     * Text color
+     *
+     * @default not set - complementray color of background color
+     */
+    textColor?: string;
+    /**
      * Webapp theme color
      *
      * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#theme_color
@@ -221,6 +228,14 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
     if (option.backgroundColor) {
         css += `body { background-color: ${option.backgroundColor} }`;
         android_manifest.background_color = option.backgroundColor;
+    }
+    if (option.textColor === undefined || option.backgroundColor !== undefined) {
+        let textColor = option.textColor;
+        if (textColor === undefined) {
+            const c = color(option.backgroundColor).hsv();
+            textColor = c.hue(180, true).value(1.0 - c.value()).css();
+        }
+        css += `body { color: ${textColor} }`;
     }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(new CleanCSS({}).minify(css).styles);
