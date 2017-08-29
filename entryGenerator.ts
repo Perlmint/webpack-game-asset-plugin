@@ -243,6 +243,7 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
     if (option.themeColor) {
         android_manifest.theme_color = option.themeColor;
         $("head").append(`<meta name="theme-color" content="${option.themeColor}" />`);
+        $("head").append(`<meta name="msapplication-TileColor" content="${option.themeColor}">`);
     }
 
     $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\" >");
@@ -251,19 +252,30 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
         if (option.icon) {
             debug("Generate icon");
             const icon = gm(option.icon);
-            const android: {[key: string]: number} = {
-                "36": 0.75,
-                "48": 1.0,
-                "72": 1.5,
-                "96": 2.0,
-                "144": 3.0,
-                "192": 4.0
+            type IconPresets = {[key: string]: string};
+            const android: IconPresets = {
+                "36": "0.75",
+                "48": "1.0",
+                "72": "1.5",
+                "96": "2.0",
+                "144": "3.0",
+                "192": "4.0"
             };
-            const ios: {[key: string]: string} = {
+            const ios: IconPresets = {
                 "180": "phone@3",
                 "120": "phone@2",
                 "167": "padpro",
                 "152": "pad"
+            };
+            const ms: IconPresets = {
+                "144": ""
+            };
+            const common: IconPresets = {
+                "16": "16",
+                "32": "32",
+                "48": "48",
+                "64": "64",
+                "128": "128"
             };
             const res = _.sortedUniq(_.sortBy(_.concat(_.keys(android), _.keys(ios))));
             icon.identify((error, info) => {
@@ -288,11 +300,11 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
                     for (const converted of converteds) {
                         const [size, buffer] = converted;
                         let name: string;
+                        name = `launch-icon-${size}.png`;
                         if (ios[size] !== undefined) {
-                            name = `launch-icon-${ios[size]}.png`;
                             $("head").append(`<link rel="apple-touch-icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
                         }
-                        else {
+                        if (android[size] !== undefined) {
                             name = `launch-icon-${android[size]}.png`;
                             android_manifest.icons.push({
                                 "src": prefix + name,
@@ -300,7 +312,12 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
                                 "type": "image/png",
                                 "density": android[size]
                             });
+                        }
+                        if (common[size] !== undefined) {
                             $("head").append(`<link rel="icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
+                        }
+                        if (ms[size] !== undefined) {
+                            $("head").append(`<meta name="msapplication-TileImage" content="${prefix}${name}">`);
                         }
                         ret[name] = buffer;
                     }
