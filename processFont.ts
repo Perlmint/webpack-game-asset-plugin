@@ -9,12 +9,12 @@ import { createInterface } from "readline";
 /**
  * @hidden
  */
-async function renderBitmapFont(key: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
+async function renderBitmapFont(key: string, hash: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
     console.log(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
     const ShelfPack = await import("@mapbox/shelf-pack");
     const cacheKey = `font_${key}`;
-    const [imageName, fontInfoName] = [key + ".png", key + ".fnt"];
+    const [imageName, fontInfoName] = [`${key}.${hash}.png`, `${key}.${hash}.fnt`];
     _.set(assets, ["bitmapFont", key], {
         args: [imageName, fontInfoName]
     });
@@ -171,7 +171,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     json = JSON.parse(bufferString);
                     isText = false;
                     if (isBitmap(json)) {
-                        await renderBitmapFont(key, assets, context, json);
+                        await renderBitmapFont(key, conf.hash, assets, context, json);
                     }
                     else {
                         // webfont
