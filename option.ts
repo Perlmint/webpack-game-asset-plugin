@@ -150,7 +150,12 @@ export interface GameAssetPluginOption {
      */
     refPresets?: { [key: string]: string };
     collectAll: boolean;
-
+    /**
+     * emit list of all collected assets
+     *
+     * @default false
+     */
+    emitAllAssetsList?: boolean;
     audioEncode?: AudioCodec[];
 }
 
@@ -266,6 +271,7 @@ export interface InternalOption {
     mergeJson: boolean;
     refPresets: { [key: string]: string };
     collectAll: boolean;
+    emitAllAssetsList: boolean;
     audioEncode: string[];
 }
 
@@ -359,6 +365,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         audioSprite: pubOption.audioSprite || false,
         refPresets: pubOption.refPresets || {},
         collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
+        emitAllAssetsList: pubOption.emitAllAssetsList || false,
         audioEncode: pubOption.audioEncode || []
     } as InternalOption;
 }

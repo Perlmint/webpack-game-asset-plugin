@@ -122,7 +122,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             const fileByType = await this.classifyFiles(files);
             const assets = await this.processAssets(fileByType);
             await this.generateListForModule(compilation);
-            await this.generateList(assets);
+            if (this.option.emitAllAssetsList) {
+                await this.generateList(assets);
+            }
             await this.generateEntry(compilation);
             callback();
         }
