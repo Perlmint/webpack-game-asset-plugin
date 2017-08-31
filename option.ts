@@ -149,6 +149,9 @@ export interface GameAssetPluginOption {
      * { [name]: JSONPath } object
      */
     refPresets?: { [key: string]: string };
+    /**
+     * collect assets from prefixed root
+     */
     collectAll: boolean;
     /**
      * emit list of all collected assets
@@ -156,6 +159,9 @@ export interface GameAssetPluginOption {
      * @default false
      */
     emitAllAssetsList?: boolean;
+    /**
+     * encode audio to these codecs
+     */
     audioEncode?: AudioCodec[];
 }
 
