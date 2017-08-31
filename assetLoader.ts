@@ -1,5 +1,5 @@
 import * as wp from "webpack";
-import { relative, extname, posix } from "path";
+import { relative, extname, posix, normalize, parse } from "path";
 import { defaultsDeep, includes } from "lodash";
 import { Compilation } from "./option";
 import { localJoinPath, collectDependentAssets, getFileHash } from "./util";
@@ -47,6 +47,7 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
                 name,
                 ext: ext,
                 srcFile,
+                localized: [""],
                 hash: hashStr,
                 outFile: `${name}.${hashStr}${ext}`,
                 query

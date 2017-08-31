@@ -14,11 +14,19 @@ export interface File {
     ext: string;
     outFile: string | string[];
     srcFile: string;
+    localized: string[];
     hash: string;
     data?: string;
     type?: string;
     outType?: string;
     query?: {[key: string]: string};
+}
+
+/**
+ * @hidden
+ */
+export function isFile(f: any): f is File {
+    return f.name !== undefined && f.srcFile !== undefined;
 }
 
 /**
@@ -163,6 +171,10 @@ export interface GameAssetPluginOption {
      * encode audio to these codecs
      */
     audioEncode?: AudioCodec[];
+    /**
+     * i18n resource postfix list
+     */
+    i18nLanguages?: string[];
 }
 
 export type AudioCodec = "ogg" | "m4a" | "mp3" | "ac3";
@@ -279,6 +291,7 @@ export interface InternalOption {
     collectAll: boolean;
     emitAllAssetsList: boolean;
     audioEncode: string[];
+    i18nLanguages: string[];
 }
 
 /**
@@ -372,7 +385,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         refPresets: pubOption.refPresets || {},
         collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
         emitAllAssetsList: pubOption.emitAllAssetsList || false,
-        audioEncode: pubOption.audioEncode || []
+        audioEncode: pubOption.audioEncode || [],
+        i18nLanguages: pubOption.i18nLanguages || []
     } as InternalOption;
 }
 

@@ -1,6 +1,6 @@
 import * as bb from "bluebird";
 import { stat, readFile, Stats } from "fs";
-import { parse as parsePath, posix } from "path";
+import { parse as parsePath, join as localJoinPath, posix, ParsedPath } from "path";
 import * as _debug from "debug";
 import * as _ from "lodash";
 import { createHash } from "crypto";
@@ -95,4 +95,23 @@ export async function getFileHash(hash: string, path: string) {
     const buf = await readFileAsync(path);
     h.update(buf);
     return h;
+}
+
+export async function isExists(path: string) {
+    return statAsync(path).thenReturn(true).catchReturn(false);
+}
+
+export function getLocalizedPath(path: string | ParsedPath, language: string) {
+    let parsedPath: ParsedPath;
+    if (typeof path === "string") {
+        parsedPath = parsePath(path);
+    } else {
+        parsedPath = path;
+    }
+
+    if (language !== "") {
+        language = `@${language}`;
+    }
+
+    return localJoinPath(parsedPath.dir, parsedPath.name + language + parsedPath.ext);
 }

@@ -6,8 +6,8 @@ import * as bb from "bluebird";
 import * as _ from "lodash";
 import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
-import { isAbsolute, extname, dirname, relative as localRelativePath } from "path";
-import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets, getFileHash } from "./util";
+import { isAbsolute, extname, dirname, relative as localRelativePath, parse, join } from "path";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets, getFileHash, isExists, getLocalizedPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext, Compilation } from "./option";
 import { generateEntry } from "./entryGenerator";
 import * as jsonpath from "jsonpath";
@@ -97,6 +97,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             else {
                 files = await this.collectFiles();
             }
+            await this.collectLocalized(files);
             const fileByType = await this.classifyFiles(files);
             const assets = await this.processAssets(fileByType);
             await this.generateListForModule(compilation);
@@ -181,13 +182,26 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 continue;
             }
             copied++;
-            const content = copy.data == null ? await readFileAsync(copy.srcFile) : copy.data;
-            (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
-                outFile => this.compilation.assets[outFile] = {
-                    size: () => content.length,
-                    source: () => content
+            if (typeof copy.outFile !== "string") {
+                // something really wrong
+                continue;
+            }
+
+            if (copy.data != null) {
+                // generated just copy it
+                this.compilation.assets[copy.outFile] = {
+                    size() { return copy.data.length; },
+                    source() { return copy.data; }
+                };
+            } else {
+                for (const lng of copy.localized) {
+                    const content = await readFileAsync(getLocalizedPath(copy.srcFile, lng));
+                    this.compilation.assets[getLocalizedPath(copy.outFile, lng)] = {
+                        size() { return content.length; },
+                        source() { return content; },
+                    };
                 }
-            );
+            }
         }
         debug(`${copied} items are copied`);
 
@@ -312,6 +326,18 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 )
             )
         );
+    }
+
+    private async collectLocalized(files: File[]) {
+        return bb.map(files, file => {
+            const parsedPath = parse(file.srcFile);
+            return bb.map(this.option.i18nLanguages, async lng => {
+                const localizedPath = getLocalizedPath(parsedPath, lng);
+                if (await isExists(localizedPath)) {
+                    file.localized.push(lng);
+                }
+            });
+        }).thenReturn(files);
     }
 
     private filterChanged(files: File[]) {
