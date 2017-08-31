@@ -92,29 +92,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         try {
             let files: File[];
             if (!this.option.collectAll) {
-                const assets = _.clone(compilation._game_asset_) || {};
-                for (const chunk of compilation.chunks) {
-                    chunk.forEachModule(module => {
-                        if (!module.userRequest) {
-                            return;
-                        }
-                        if (!isOldModule(module)) {
-                            return;
-                        }
-                        if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
-                            return;
-                        }
-                        if (!this.assetCache[module.resource]) {
-                            return;
-                        }
-
-                        assets[module.resource] = this.assetCache[module.resource];
-                    });
-                }
-                files = await this.extendFiles(assets);
-                for (const file of files) {
-                    this.assetCache[this.toAbsPath(file.srcFile)] = file;
-                }
+                files = await this.collectAssetFromModule(compilation);
             }
             else {
                 files = await this.collectFiles();
@@ -273,6 +251,34 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         for (const hash of removedModuleHash) {
             delete this.referencedModules[hash];
         }
+    }
+
+    private async collectAssetFromModule(compilation: Compilation) {
+        const assets = _.clone(compilation._game_asset_) || {};
+        for (const chunk of compilation.chunks) {
+            chunk.forEachModule(module => {
+                if (!module.userRequest) {
+                    return;
+                }
+                if (!isOldModule(module)) {
+                    return;
+                }
+                if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
+                    return;
+                }
+                if (!this.assetCache[module.resource]) {
+                    return;
+                }
+
+                assets[module.resource] = this.assetCache[module.resource];
+            });
+        }
+        const files = await this.extendFiles(assets);
+        for (const file of files) {
+            this.assetCache[this.toAbsPath(file.srcFile)] = file;
+        }
+
+        return files;
     }
 
     private async collectFiles(): Promise<File[]> {
