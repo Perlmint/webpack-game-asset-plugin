@@ -309,10 +309,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 items
             };
         });
-        return _.flatten(
+        return bb.all(_.flatten(
             _.map(filesByRoot,
-                val => val.items.map<File>(
-                    file => {
+                async val => val.items.map<Promise<File>>(
+                    async file => {
                         file = normalizePath(file);
                         const relPath = relativePath(val.srcRoot, file);
                         const path = parsePath(relPath);
@@ -320,12 +320,14 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                             name: joinPath(path.dir, path.name),
                             ext: path.ext,
                             outFile: joinPath(val.outRoot, relPath),
-                            srcFile: file
+                            srcFile: file,
+                            hash: (await getFileHash("md5", file)).digest("hex"),
+                            localized: [""]
                         };
                     }
                 )
             )
-        );
+        ));
     }
 
     private async collectLocalized(files: File[]) {
@@ -414,7 +416,8 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                                     ext,
                                     hash: hash.digest("hex"),
                                     srcFile,
-                                    outFile
+                                    outFile,
+                                    localized: [""]
                                 };
                             }
 
