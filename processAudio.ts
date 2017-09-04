@@ -72,6 +72,8 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
                     return typeof file.outFile === "string" ? file.outFile : file.outFile[0];
                 }
 
+                const name = `${file.name}.${file.hash}.${codec}`;
+
                 if (context.isChanged(file.srcFile)) {
                     const outFile = tmpFile({
                         postfix: "." + codec,
@@ -79,14 +81,14 @@ export async function processAudio(context: ProcessContext, files: [FilesByType,
                     });
                     await new bb<string>(resolve => ffmpeg(file.srcFile).save(outFile.name).on("end", async () => {
                         const outData = await readFileAsync(outFile.name);
-                        context.compilation.assets[file.name + "." + codec] = {
+                        context.compilation.assets[name] = {
                             size: () => outData.length,
                             source: () => outData
                         };
                         resolve();
                     }));
                 }
-                return file.name + "." + codec;
+                return name;
             });
 
             assets["audio"][file.name] = {

@@ -6,8 +6,8 @@ import * as bb from "bluebird";
 import * as _ from "lodash";
 import { lookup, types } from "mime-types";
 import { v4 as uuidV4 } from "uuid";
-import { isAbsolute, extname, dirname, relative as localRelativePath } from "path";
-import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath } from "./util";
+import { isAbsolute, extname, dirname, relative as localRelativePath, parse, join } from "path";
+import { formatPath, joinPath, normalizePath, readFileAsync, relativePath, statAsync, debug, parsePath, localJoinPath, collectDependentAssets, getFileHash, isExists, getLocalizedPath } from "./util";
 import { InternalOption, GameAssetPluginOption, publicOptionToprivate, File, FilesByType, Assets, isCustomAsset, ProcessContext, Compilation } from "./option";
 import { generateEntry } from "./entryGenerator";
 import * as jsonpath from "jsonpath";
@@ -46,7 +46,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
      * @hidden
      */
     public context: string;
-    private publicPath: string;
     private entryName: string;
     private fileDependencies: string[] = [];
     private newFileDependencies: string[] = [];
@@ -93,38 +92,19 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         try {
             let files: File[];
             if (!this.option.collectAll) {
-                const assets = _.clone(compilation._game_asset_) || {};
-                for (const chunk of compilation.chunks) {
-                    chunk.forEachModule(module => {
-                        if (!module.userRequest) {
-                            return;
-                        }
-                        if (!isOldModule(module)) {
-                            return;
-                        }
-                        if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
-                            return;
-                        }
-                        if (!this.assetCache[module.resource]) {
-                            return;
-                        }
-
-                        assets[module.resource] = this.assetCache[module.resource];
-                    });
-                }
-                files = await this.extendFiles(assets);
-                for (const assetKey of _.keys(assets)) {
-                    this.assetCache[assetKey] = assets[assetKey];
-                }
+                files = await this.collectAssetFromModule(compilation);
             }
             else {
                 files = await this.collectFiles();
             }
+            await this.collectLocalized(files);
             const fileByType = await this.classifyFiles(files);
             const assets = await this.processAssets(fileByType);
             await this.generateListForModule(compilation);
-            await this.generateList(assets);
-            await this.generateEntry();
+            if (this.option.emitAllAssetsList) {
+                await this.generateList(assets);
+            }
+            await this.generateEntry(compilation);
             callback();
         }
         catch (e) {
@@ -154,15 +134,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
 
     apply(compiler: wp.Compiler) {
         this.context = compiler.options.context;
-        this.publicPath = compiler.options.output.publicPath;
-        if (this.publicPath != null) {
-            if (_.last(this.publicPath) !== "/") {
-                this.publicPath += "/";
-            }
-        }
-        else {
-            this.publicPath = "";
-        }
         this.newFileDependencies = _.map(this.newFileDependencies, path => this.toAbsPath(path));
         this.entryName = compiler.options.output.filename;
         compiler.plugin("emit", this.emit.bind(this, compiler));
@@ -179,7 +150,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
 
     private async processAssets(fileByType: FilesByType): Promise<Assets> {
         debug("begin process assets");
-        let files: [FilesByType, Assets] = [fileByType, _.cloneDeep(fileByType)];
+        let files: [FilesByType, Assets] = [fileByType, Object.assign({}, fileByType)];
         if (this.option.makeAtlas) {
             const { processImages } = await import("./processImages");
             files = await processImages(
@@ -211,13 +182,26 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 continue;
             }
             copied++;
-            const content = copy.data == null ? await readFileAsync(copy.srcFile) : copy.data;
-            (typeof copy.outFile === "string" ? [copy.outFile] : copy.outFile).map(
-                outFile => this.compilation.assets[outFile] = {
-                    size: () => content.length,
-                    source: () => content
+            if (typeof copy.outFile !== "string") {
+                // something really wrong
+                continue;
+            }
+
+            if (copy.data != null) {
+                // generated just copy it
+                this.compilation.assets[copy.outFile] = {
+                    size() { return copy.data.length; },
+                    source() { return copy.data; }
+                };
+            } else {
+                for (const lng of copy.localized) {
+                    const content = await readFileAsync(getLocalizedPath(copy.srcFile, lng));
+                    this.compilation.assets[getLocalizedPath(copy.outFile, lng)] = {
+                        size() { return content.length; },
+                        source() { return content; },
+                    };
                 }
-            );
+            }
         }
         debug(`${copied} items are copied`);
 
@@ -244,42 +228,19 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return bb.resolve();
     }
 
+    private referencedModules: { [key: string]: wp.Module} = {};
     private async generateListForModule(compilation: Compilation) {
         const assetsForModule: { [key: string]: string[] } = {};
-        _.forEach(compilation._referenced_modules_, (module: wp.Module, hash: string) => {
-            assetsForModule[module.resource] = [];
-            const dependencies: [any, string][] = _.map(module.dependencies, dep => [dep, module.resource] as [any, string]);
-            const assets: string[] = [];
-            while (dependencies.length !== 0) {
-                const [dep, from] = dependencies.shift();
-                // ignore null module
-                if (dep.module == null) {
-                    continue;
-                }
-                // ignore helper
-                if (dep.request === "webpack-game-asset-plugin/helper") {
-                    continue;
-                }
-                // ignore other referenced module
-                if (_.find(compilation._referenced_modules_, m => m.resource === dep.module.resource) !== undefined) {
-                    continue;
-                }
-                // depedency is asset
-                if (_.some(dep.module.loaders, l => l.loader === GameAssetPlugin.loaderPath)) {
-                    assets.push(dep.module.resource);
-                    assetsForModule[from].push(dep.module.resource);
-                }
-                // already cached!
-                else if (assetsForModule[dep.module.resource]) {
-                    assets.push(...assetsForModule[dep.module.resource]);
-                }
-                // new normal module
-                else {
-                    assetsForModule[dep.module.resource] = [];
-                    dependencies.push(..._.map(dep.module.dependencies, d => [d, dep.module.resource] as [any, string]));
-                }
+        const modules = _.flatten(_.map(compilation.chunks, chunk => chunk.getModules()));
+        this.referencedModules = Object.assign(this.referencedModules, compilation._referenced_modules_);
+        const removedModuleHash: string[] = [];
+        _.forEach(this.referencedModules, (module: wp.Module, hash: string) => {
+            if (!_.includes(modules, module)) {
+                removedModuleHash.push(hash);
+                return;
             }
-
+            assetsForModule[module.resource] = [];
+            const assets: string[] = collectDependentAssets(module, assetsForModule, GameAssetPlugin.loaderPath);
             const assetsInfo = _.filter(_.uniq(_.concat(
                 assets.map(asset => this.assetCache[asset]),
                 _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
@@ -300,6 +261,38 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 }
             };
         });
+
+        for (const hash of removedModuleHash) {
+            delete this.referencedModules[hash];
+        }
+    }
+
+    private async collectAssetFromModule(compilation: Compilation) {
+        const assets = _.clone(compilation._game_asset_) || {};
+        for (const chunk of compilation.chunks) {
+            chunk.forEachModule(module => {
+                if (!module.userRequest) {
+                    return;
+                }
+                if (!isOldModule(module)) {
+                    return;
+                }
+                if (_.find(module.loaders, (loader: any) => loader.loader === GameAssetPlugin.loaderPath) == null) {
+                    return;
+                }
+                if (!this.assetCache[module.resource]) {
+                    return;
+                }
+
+                assets[module.resource] = this.assetCache[module.resource];
+            });
+        }
+        const files = await this.extendFiles(assets);
+        for (const file of files) {
+            this.assetCache[this.toAbsPath(file.srcFile)] = file;
+        }
+
+        return files;
     }
 
     private async collectFiles(): Promise<File[]> {
@@ -316,10 +309,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 items
             };
         });
-        return _.flatten(
+        return bb.all(_.flatten(
             _.map(filesByRoot,
-                val => val.items.map<File>(
-                    file => {
+                async val => val.items.map<Promise<File>>(
+                    async file => {
                         file = normalizePath(file);
                         const relPath = relativePath(val.srcRoot, file);
                         const path = parsePath(relPath);
@@ -327,12 +320,26 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                             name: joinPath(path.dir, path.name),
                             ext: path.ext,
                             outFile: joinPath(val.outRoot, relPath),
-                            srcFile: file
+                            srcFile: file,
+                            hash: (await getFileHash("md5", file)).digest("hex"),
+                            localized: [""]
                         };
                     }
                 )
             )
-        );
+        ));
+    }
+
+    private async collectLocalized(files: File[]) {
+        return bb.map(files, file => {
+            const parsedPath = parse(file.srcFile);
+            return bb.map(this.option.i18nLanguages, async lng => {
+                const localizedPath = getLocalizedPath(parsedPath, lng);
+                if (await isExists(localizedPath)) {
+                    file.localized.push(lng);
+                }
+            });
+        }).thenReturn(files);
     }
 
     private filterChanged(files: File[]) {
@@ -402,12 +409,15 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                             const ext = extname(outFile);
                             const name = outFile.replace(ext, "");
                             parent[lastComponent] = name;
+                            const hash = await getFileHash("md5", srcFile);
                             if (allFiles[srcFile] === undefined) {
                                 allFiles[srcFile] = {
                                     name,
                                     ext,
+                                    hash: hash.digest("hex"),
                                     srcFile,
-                                    outFile
+                                    outFile,
+                                    localized: [""]
                                 };
                             }
 
@@ -436,10 +446,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                         return;
                     }
                     if (fileStat.isDirectory()) {
-                        return {
-                            cat: "dir",
-                            ...file
-                        };
+                        return Object.assign(file, {
+                            cat: "dir"
+                        });
                     }
 
                     const mime = lookup(file.ext);
@@ -456,10 +465,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                         file.outType = cat;
                     }
 
-                    return {
-                        cat,
-                        ...file
-                    };
+                    return Object.assign(file, {
+                        cat
+                    });
                 })
         );
         const groups = _.groupBy(_.filter(cat_files), file => file.cat);
@@ -489,7 +497,29 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         return fileByType;
     }
 
-    private async generateEntry(): Promise<void> {
+    private async generateEntry(compilation: wp.Compilation): Promise<void> {
+        const entrypoints = _.flatten<string>(_.map(compilation.entrypoints, (entrypoint: wp.EntryPoint, name) => _.map(entrypoint.chunks, (chunk: wp.Chunk) => {
+            const filenameTemplate = chunk.filenameTemplate ? chunk.filenameTemplate :
+                chunk.isInitial() ? compilation.outputOptions.filename :
+                compilation.outputOptions.chunkFilename;
+            const useChunkHash = !chunk.hasRuntime() || (compilation.mainTemplate.useChunkHash && compilation.mainTemplate.useChunkHash(chunk));
+            const path = compilation.getPath(filenameTemplate, {
+                noChunkHash: !useChunkHash,
+                chunk
+            });
+            return path;
+        })));
+
+        let publicPath: string = compilation.outputOptions.publicPath;
+        if (publicPath != null) {
+            if (_.last(publicPath) !== "/") {
+                publicPath += "/";
+            }
+        }
+        else {
+            publicPath = "";
+        }
+        publicPath = publicPath.replace("[hash]", compilation.hash);
         const option = await this.option.entryOption();
         const deps = [option._path];
 
@@ -507,10 +537,10 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             return;
         }
 
-        const files = await generateEntry(this.publicPath, this.entryName , option);
+        const files = await generateEntry(publicPath, entrypoints, compilation.hash, option);
 
         _.forEach(files, (content, name) => {
-            this.compilation.assets[name] = {
+            compilation.assets[name] = {
                 size: () => content.length,
                 source: () => content
             };

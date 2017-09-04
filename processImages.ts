@@ -4,6 +4,7 @@ import * as _ from "lodash";
 import { InternalOption, FilesByType, File, Assets, ProcessContext, AtlasMapType } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
+import { createHash } from "crypto";
 
 /**
  * @hidden
@@ -80,11 +81,15 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                         src[1].outType = "atlas";
                     }
                     try {
+                        let hashStr: string;
                         await bb.all(
                             _.map<[SynchrounousResult , string], bb<void>>(
                                 [[atlas, ".png"], [info, ".json"]],
                                 names =>
                                     readFileAsync(names[0].name).then(content => {
+                                        const hash = createHash("md5");
+                                        hash.update(content);
+                                        hashStr = hash.digest("hex");
                                         context.compilation.assets[outName + names[1]] = {
                                             size: () => content.length,
                                             source: () => content
@@ -96,6 +101,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                         assets["atlas"][outName] = {
                             ext: ".png",
                             name: outName,
+                            hash: hashStr,
                             outFile: [outName + ".png", outName + ".json"],
                             srcFile: ""
                         };

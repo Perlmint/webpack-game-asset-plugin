@@ -10,6 +10,7 @@ import { tmpFile, readFileAsync, debug } from "./util";
 import * as CleanCSS from "clean-css";
 import { minify as minifyJS } from "uglify-js";
 import { minify as _minifyHTML } from "html-minifier";
+import * as color from "onecolor";
 
 /**
  * @hidden
@@ -127,6 +128,12 @@ export interface EntryOption {
      */
     backgroundColor?: string;
     /**
+     * Text color
+     *
+     * @default not set - complementray color of background color
+     */
+    textColor?: string;
+    /**
      * Webapp theme color
      *
      * @ref https://developer.mozilla.org/ko/docs/Web/Manifest#theme_color
@@ -166,7 +173,7 @@ export interface EntryOption {
 /**
  * @hidden
  */
-export function generateEntry(prefix: string, entryJS: string, option: EntryOption) {
+export function generateEntry(prefix: string, entrypoints: string[], hash: string, option: EntryOption) {
     debug("Generate Entry html");
     const ret: {[key: string]: string | Buffer} = {};
     const android_manifest: any = {};
@@ -222,12 +229,21 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
         css += `body { background-color: ${option.backgroundColor} }`;
         android_manifest.background_color = option.backgroundColor;
     }
+    if (option.textColor === undefined || option.backgroundColor !== undefined) {
+        let textColor = option.textColor;
+        if (textColor === undefined) {
+            const c = color(option.backgroundColor).hsv();
+            textColor = c.hue(180, true).value(1.0 - c.value()).css();
+        }
+        css += `body { color: ${textColor} }`;
+    }
     $("head").append("<style type=\"text/css\"></style>");
     $("head style").text(new CleanCSS({}).minify(css).styles);
 
     if (option.themeColor) {
         android_manifest.theme_color = option.themeColor;
         $("head").append(`<meta name="theme-color" content="${option.themeColor}" />`);
+        $("head").append(`<meta name="msapplication-TileColor" content="${option.themeColor}">`);
     }
 
     $("head").append("<link rel=\"manifest\" href=\"android_manifest.json\" >");
@@ -236,19 +252,30 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
         if (option.icon) {
             debug("Generate icon");
             const icon = gm(option.icon);
-            const android: {[key: string]: number} = {
-                "36": 0.75,
-                "48": 1.0,
-                "72": 1.5,
-                "96": 2.0,
-                "144": 3.0,
-                "192": 4.0
+            type IconPresets = {[key: string]: string};
+            const android: IconPresets = {
+                "36": "0.75",
+                "48": "1.0",
+                "72": "1.5",
+                "96": "2.0",
+                "144": "3.0",
+                "192": "4.0"
             };
-            const ios: {[key: string]: string} = {
+            const ios: IconPresets = {
                 "180": "phone@3",
                 "120": "phone@2",
                 "167": "padpro",
                 "152": "pad"
+            };
+            const ms: IconPresets = {
+                "144": ""
+            };
+            const common: IconPresets = {
+                "16": "16",
+                "32": "32",
+                "48": "48",
+                "64": "64",
+                "128": "128"
             };
             const res = _.sortedUniq(_.sortBy(_.concat(_.keys(android), _.keys(ios))));
             icon.identify((error, info) => {
@@ -273,11 +300,11 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
                     for (const converted of converteds) {
                         const [size, buffer] = converted;
                         let name: string;
+                        name = `launch-icon-${size}.png`;
                         if (ios[size] !== undefined) {
-                            name = `launch-icon-${ios[size]}.png`;
                             $("head").append(`<link rel="apple-touch-icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
                         }
-                        else {
+                        if (android[size] !== undefined) {
                             name = `launch-icon-${android[size]}.png`;
                             android_manifest.icons.push({
                                 "src": prefix + name,
@@ -285,7 +312,12 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
                                 "type": "image/png",
                                 "density": android[size]
                             });
+                        }
+                        if (common[size] !== undefined) {
                             $("head").append(`<link rel="icon" sizes="${size}x${size}" href="${prefix}${name}" />`);
+                        }
+                        if (ms[size] !== undefined) {
+                            $("head").append(`<meta name="msapplication-TileImage" content="${prefix}${name}">`);
                         }
                         ret[name] = buffer;
                     }
@@ -296,11 +328,32 @@ export function generateEntry(prefix: string, entryJS: string, option: EntryOpti
             resolve();
         }
     }).then(() => {
-        $("body").append(`<span id="wait_script"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
-        $("body").append(`<script src="${prefix}${entryJS}" onload="var node = document.getElementById('wait_script'); if (node.remove) { node.remove(); } else { node.removeNode(true); }"></script>`);
+        $("body").append(`<span id="wait_script${hash}"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
+        $("body").append(`<script id="loaderScript${hash}">
+let remainEntries${hash} = ${entrypoints.length};
+function entryLoaded${hash}() {
+    function removeNode(node) {
+        if (node.remove) {
+            node.remove();
+        } else {
+            node.removeNode(true);
+        }
+    }
+    if ((--remainEntries${hash}) === 0) {
+        removeNode(document.getElementById('wait_script${hash}'));
+        removeNode(document.getElementById('loaderScript${hash}'))
+    }
+}</script>`);
+        $("body").append(`<script>__webpack_public_path__="${prefix}"</script>`);
+        for (const entry of entrypoints) {
+            $("body").append(`<script src="${prefix}${entry}" onload="entryLoaded${hash}()"></script>`);
+        }
 
         if (option.offline !== undefined) {
-            $("body").append(`<script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register("${prefix}offline.js").catch(() => {}); }</script>`);
+            $("body").append(`<script>
+if ('serviceWorker' in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("${prefix}offline.js").catch(() => {});
+}</script>`);
             const params: {[key: string]: string} = {
                 title: option.title,
                 prefix,
