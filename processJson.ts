@@ -4,6 +4,7 @@ import { fromPairs, clone, keys } from "lodash";
 import { join } from "path";
 import { readFileAsync } from "./util";
 import { FilesByType, Assets, ProcessContext } from "./option";
+import { createHash } from "crypto";
 
 /**
  * @hidden
@@ -11,14 +12,6 @@ import { FilesByType, Assets, ProcessContext } from "./option";
 export async function processJson(context: ProcessContext, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     const jsonFiles = toCopy["json"];
-    assets["mergedjson"] = {
-        "data.json": {
-            ext: ".json",
-            name: "data.json",
-            outFile: "data.json",
-            srcFile: ""
-        }
-    };
     delete toCopy["json"];
     delete assets["json"];
 
@@ -26,24 +19,38 @@ export async function processJson(context: ProcessContext, files: [FilesByType, 
         return [toCopy, assets];
     }
 
+    const filenames = _.sortBy(keys(jsonFiles));
+    const hash = createHash("md5");
     const data = await bb.map(
-        keys(jsonFiles),
+        filenames,
         async (filename) => {
             let data: string;
             if (jsonFiles[filename].data) {
                  data = jsonFiles[filename].data;
             }
             else {
-                data = await readFileAsync(context.toAbsPath(jsonFiles[filename].srcFile)).then(
-                    buf => buf.toString("utf-8")
-                );
+                const buf = await readFileAsync(context.toAbsPath(jsonFiles[filename].srcFile));
+                hash.update(buf);
+                data = buf.toString("utf-8");
             }
-            return [filename, JSON.parse(data)];
+            return [filename, JSON.parse(data)] as [string, any];
         }
     );
+    const hashStr = hash.digest("hex");
+    const filename = `${hashStr}.data.json`;
+    assets["mergedjson"] = {
+        filename: {
+            ext: ".json",
+            name: filename,
+            outFile: filename,
+            hash: hashStr,
+            localized: [""],
+            srcFile: ""
+        }
+    };
     const merged = await fromPairs(data);
     const stringified = JSON.stringify(merged);
-    context.compilation.assets["data.json"] = {
+    context.compilation.assets[filename] = {
         size: () => stringified.length,
         source: () => stringified
     };
