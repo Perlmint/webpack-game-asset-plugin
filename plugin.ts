@@ -511,6 +511,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         })));
 
         let publicPath: string = compilation.outputOptions.publicPath;
+        const useHash = publicPath.indexOf("[hash]");
         if (publicPath != null) {
             if (_.last(publicPath) !== "/") {
                 publicPath += "/";
@@ -533,7 +534,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             deps.push(option.offline.image);
         }
 
-        if (!_.some(deps, d => this.isChanged(d))) {
+        if (!useHash && !_.some(deps, d => this.isChanged(d))) {
             return;
         }
 
