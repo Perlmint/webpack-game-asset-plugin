@@ -249,7 +249,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                 if (assetsJson[asset.outType] === undefined) {
                     assetsJson[asset.outType] = {};
                 }
-                assetsJson[asset.outType][asset.name] = typeof asset.outFile === "string" ? [asset.outFile] : asset.outFile;
+                assetsJson[asset.outType][_.defaultTo(asset.outName, asset.name)] = typeof asset.outFile === "string" ? [asset.outFile] : asset.outFile;
             }
             const contentStr = JSON.stringify(assetsJson);
             compilation.assets[hash + ".json"] = {

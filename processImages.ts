@@ -78,6 +78,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 if (e == null) {
                     for (const src of source) {
                         src[1].outFile = [outName + ".png", outName + ".json"];
+                        src[1].outName = outName;
                         src[1].outType = "atlas";
                     }
                     try {

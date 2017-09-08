@@ -19,6 +19,7 @@ export interface File {
     data?: string;
     type?: string;
     outType?: string;
+    outName?: string;
     query?: {[key: string]: string};
 }
 
