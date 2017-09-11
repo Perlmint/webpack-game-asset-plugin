@@ -15,6 +15,7 @@ export interface File {
     outFile: string | string[];
     srcFile: string;
     localized: string[];
+    referencedModules?: string[];
     hash: string;
     data?: string;
     type?: string;
