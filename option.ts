@@ -177,6 +177,10 @@ export interface GameAssetPluginOption {
      * i18n resource postfix list
      */
     i18nLanguages?: string[];
+    /**
+     * add file hash to emitted asset filename
+     */
+    addHashToAsset?: boolean;
 }
 
 export type AudioCodec = "ogg" | "m4a" | "mp3" | "ac3";
@@ -294,6 +298,7 @@ export interface InternalOption {
     emitAllAssetsList: boolean;
     audioEncode: string[];
     i18nLanguages: string[];
+    addHashToAsset: boolean;
 }
 
 /**
@@ -388,7 +393,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
         emitAllAssetsList: pubOption.emitAllAssetsList || false,
         audioEncode: pubOption.audioEncode || [],
-        i18nLanguages: pubOption.i18nLanguages || []
+        i18nLanguages: pubOption.i18nLanguages || [],
+        addHashToAsset: pubOption.addHashToAsset || false
     } as InternalOption;
 }
 

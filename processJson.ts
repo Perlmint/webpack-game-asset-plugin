@@ -43,7 +43,10 @@ export async function processJson(context: ProcessContext, files: [FilesByType, 
             }
         );
         const hashStr = hash.digest("hex");
-        const outName = `${hashStr}.${groupName}`;
+        let outName = groupName;
+        if (context.option.addHashToAsset) {
+            outName += `.${hashStr}`;
+        }
         const filename = `${outName}.json`;
         assets["mergedjson"] = {
             filename: {

@@ -9,12 +9,12 @@ import { createInterface } from "readline";
 /**
  * @hidden
  */
-async function renderBitmapFont(key: string, hash: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
+async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
     console.log(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
     const ShelfPack = await import("@mapbox/shelf-pack");
     const cacheKey = `font_${key}`;
-    const [imageName, fontInfoName] = [`${key}.${hash}.png`, `${key}.${hash}.fnt`];
+    const [imageName, fontInfoName] = [`${name}.png`, `${name}.fnt`];
     _.set(assets, ["bitmapFont", key], {
         args: [imageName, fontInfoName]
     });
@@ -79,18 +79,18 @@ ${JSON.stringify(conf)}`);
 /**
  * @hidden
  */
-async function modifyBitmapFontXML(key: string, assets: Assets, context: ProcessContext, buf: Buffer) {
+async function modifyBitmapFontXML(key: string, name: string, assets: Assets, context: ProcessContext, buf: Buffer) {
     let imageName: string;
     try {
         const xml2js = await import("xml2js");
         const xml = await parseXMLString(buf);
         imageName = xml.font.pages[0].page[0]["$"].file;
         const ext = extname(imageName);
-        xml.font.pages[0].page[0]["$"].file = key + ext;
+        xml.font.pages[0].page[0]["$"].file = name + ext;
         const fntString = new xml2js.Builder({
             trim: true
         }).buildObject(xml);
-        context.compilation.assets[key + ".fnt"] = {
+        context.compilation.assets[name + ".fnt"] = {
             size: () => fntString.length,
             source: () => fntString
         };
@@ -105,7 +105,7 @@ async function modifyBitmapFontXML(key: string, assets: Assets, context: Process
 /**
  * @hidden
  */
-async function modifyBitmapFontText(key: string, assets: Assets, context: ProcessContext, stream: Readable) {
+async function modifyBitmapFontText(key: string, name: string, assets: Assets, context: ProcessContext, stream: Readable) {
     return new bb<string>(resolve => {
         const rl = createInterface(stream);
         let imageName: string;
@@ -116,7 +116,7 @@ async function modifyBitmapFontText(key: string, assets: Assets, context: Proces
                 const s = line.split("file=");
                 imageName = JSON.parse(s[1]);
                 const ext = extname(imageName);
-                s[1] = `"${key}${ext}"`;
+                s[1] = `"${name}${ext}"`;
                 line = s.join("file=");
                 pageExists = true;
             }
@@ -129,7 +129,7 @@ async function modifyBitmapFontText(key: string, assets: Assets, context: Proces
             }
             console.log(`[bitmap font - text] ${key}`);
             const atlas = lines.join("\n");
-            context.compilation.assets[key + ".fnt"] = {
+            context.compilation.assets[name + ".fnt"] = {
                 size: () => atlas.length,
                 source: () => atlas
             };
@@ -152,9 +152,13 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
     for (const key of _.keys(fonts)) {
         const conf = fonts[key];
         const ext = conf.ext;
+        let name = key;
+        if (context.option.addHashToAsset) {
+            name += `.${conf.hash}`;
+        }
         const buf = await readFileAsync(conf.srcFile);
         // bitmap font
-        let imageName = await modifyBitmapFontXML(key, assets, context, buf);
+        let imageName = await modifyBitmapFontXML(key, name, assets, context, buf);
         let bufferString: string = undefined;
         let isText = false;
         if (imageName === null) {
@@ -171,7 +175,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     json = JSON.parse(bufferString);
                     isText = false;
                     if (isBitmap(json)) {
-                        await renderBitmapFont(key, conf.hash, assets, context, json);
+                        await renderBitmapFont(key, name, assets, context, json);
                     }
                     else {
                         // webfont
@@ -191,7 +195,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                 const { ReadableStreamBuffer } = await import("stream-buffers");
                 const stream = new ReadableStreamBuffer();
                 stream.put(bufferString);
-                imageName = await modifyBitmapFontText(key, assets, context, stream);
+                imageName = await modifyBitmapFontText(key, name, assets, context, stream);
                 stream.stop();
             }
             if (imageName === null) {
@@ -200,12 +204,12 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     args: {
                         custom: {
                             families: [key],
-                            urls: [key + ".css"]
+                            urls: [name + ".css"]
                         }
                     }
                 });
                 if (context.isChanged(conf.srcFile)) {
-                    context.compilation.assets[key + ".css"] = {
+                    context.compilation.assets[name + ".css"] = {
                         size: () => bufferString.length,
                         source: () => bufferString
                     };
@@ -217,11 +221,11 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
             const imgExt = extname(imageName);
             conf.outType = "bitmapFont";
             _.set(assets, ["bitmapFont", key], {
-                args: [key + imgExt, key + ".fnt"]
+                args: [name + imgExt, name + ".fnt"]
             });
             if (context.isChanged(imgPath)) {
                 const img = await readFileAsync(imgPath);
-                context.compilation.assets[key + imgExt] = {
+                context.compilation.assets[name + imgExt] = {
                     size: () => img.length,
                     source: () => img
                 };

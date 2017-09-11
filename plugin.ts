@@ -88,7 +88,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     private refAssetCache: { [key: string]: File[] } = {};
 
     private async emit(compiler: wp.Compiler, compilation: Compilation, callback: (err?: Error) => void): Promise<void> {
-        this.compilation = compilation;
         try {
             let files: File[];
             if (!this.option.collectAll) {
@@ -133,10 +132,16 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         callback();
     }
 
+    private beginCompilation(compilation: Compilation) {
+        this.compilation = compilation;
+        compilation.__game_asset_plugin_option__ = this.option;
+    }
+
     apply(compiler: wp.Compiler) {
         this.context = compiler.options.context;
         this.newFileDependencies = _.map(this.newFileDependencies, path => this.toAbsPath(path));
         this.entryName = compiler.options.output.filename;
+        compiler.plugin("compilation", this.beginCompilation.bind(this));
         compiler.plugin("emit", this.emit.bind(this, compiler));
         compiler.plugin("after-emit", this.afterEmit.bind(this));
         compiler.plugin("normal-module-factory", nmf => {
