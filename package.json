@@ -5,6 +5,7 @@
   "main": "plugin.js",
   "types": "plugin.d.ts",
   "scripts": {
+    "build": "tsc -p src",
     "build:doc": "typedoc --out docs --target ES5 --module commonjs -p ./ --mode file --excludeNotExported --excludePrivate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

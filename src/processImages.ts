@@ -107,6 +107,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                             name: outName,
                             hash: hashStr,
                             outFile: [outName + ".png", outName + ".json"],
+                            args: undefined,
                             srcFile: ""
                         };
                         resolve();
