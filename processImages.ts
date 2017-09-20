@@ -34,6 +34,9 @@ export async function processImages(context: ProcessContext, option: InternalOpt
             if (!_.startsWith(key, pfx)) {
                 continue;
             }
+            if (file.query["raw"]) {
+                continue;
+            }
 
             if (sources[idx] === undefined) {
                 sources[idx] = [];
