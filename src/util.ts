@@ -3,7 +3,7 @@ import { stat, readFile, Stats } from "fs";
 import { parse as parsePath, join as localJoinPath, posix, ParsedPath } from "path";
 import * as _debug from "debug";
 import * as _ from "lodash";
-import { createHash } from "crypto";
+import { createHash, Hash } from "crypto";
 import { Module } from "webpack";
 
 export { fileSync as tmpFile, SynchrounousResult, dirSync as tmpDir } from "tmp";
