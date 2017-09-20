@@ -18,7 +18,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
     assets["atlas"] = {};
     let idx = 0;
 
-    const map = await option.atlasMap();
+    const map = await option.atlasMap(context.context);
 
     debug("generate atlas");
 

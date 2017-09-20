@@ -553,7 +553,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
             publicPath = "";
         }
         publicPath = publicPath.replace("[hash]", compilation.hash);
-        const option = await this.option.entryOption();
+        const option = await this.option.entryOption(this.context);
         const deps = [option._path];
 
         if (option.icon) {

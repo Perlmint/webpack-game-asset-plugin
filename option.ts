@@ -2,6 +2,7 @@ import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as wp from "webpack";
+import { join } from "path";
 import { Fontdeck, Google, Monotype, Typekit, Custom as CustomWebFont } from "webfontloader";
 import { readFileAsync } from "./util";
 import { EntryOption } from "./entryGenerator";
@@ -279,7 +280,7 @@ export type Fonts = {[key: string]: (WebFontConf | BitmapFontConf | LocalFontCon
 export interface InternalOption {
     makeAtlas: boolean;
     audioSprite: boolean;
-    atlasMap: () => bb<AtlasMapType>;
+    atlasMap: (context: string) => bb<AtlasMapType>;
     atlasMapFile?: string;
     assetRoots: {
         src: string;
@@ -291,7 +292,7 @@ export interface InternalOption {
     atlasOption: {
         padding?: number;
     };
-    entryOption(): bb<EntryOption>;
+    entryOption(context: string): bb<EntryOption>;
     mergeJson: boolean;
     refPresets: { [key: string]: string };
     collectAll: boolean;
@@ -337,7 +338,7 @@ function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
  * @hidden
  */
 export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
-    let atlasMapFunc: () => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
+    let atlasMapFunc: (context: string) => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
         excludes: [],
         pack: [
             { name: "", group: 0 }
@@ -346,8 +347,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
     const atlasMap = pubOption.atlasMap;
     let atlasMapFile: string = undefined;
     if (typeof atlasMap === "string") {
-        atlasMapFunc = () => readFileAsync(
-            atlasMap
+        atlasMapFunc = (context: string) => readFileAsync(
+            join(context, atlasMap)
         ).then(
             buf => JSON.parse(buf.toString("utf-8")) as (string | string[])[]
         ).then(sortAtlasMap);
@@ -380,9 +381,9 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         atlasOption: {
             padding: pubOption.padding
         },
-        entryOption() {
+        entryOption(context: string) {
             return readFileAsync(
-                pubOption.entryOption
+                join(context, pubOption.entryOption)
             ).then(
                 buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
             );
