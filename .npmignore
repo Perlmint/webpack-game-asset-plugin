@@ -1,6 +1,5 @@
 node_modules
-*.ts
-!*.d.ts
+src
 *~
 *.log
 types
