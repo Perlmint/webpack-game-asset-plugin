@@ -10,7 +10,7 @@ import { createInterface } from "readline";
  * @hidden
  */
 async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
-    console.log(`[bitmap font - render] ${key}`);
+    debug(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
     const ShelfPack = await import("@mapbox/shelf-pack");
     const cacheKey = `font_${key}`;
@@ -94,7 +94,7 @@ async function modifyBitmapFontXML(key: string, name: string, assets: Assets, co
             size: () => fntString.length,
             source: () => fntString
         };
-        console.log(`[bitmap font - xml] ${key}`);
+        debug(`[bitmap font - xml] ${key}`);
     }
     catch (e) {
         return null;
@@ -127,7 +127,7 @@ async function modifyBitmapFontText(key: string, name: string, assets: Assets, c
                 resolve(null);
                 return;
             }
-            console.log(`[bitmap font - text] ${key}`);
+            debug(`[bitmap font - text] ${key}`);
             const atlas = lines.join("\n");
             context.compilation.assets[name + ".fnt"] = {
                 size: () => atlas.length,
@@ -179,7 +179,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     }
                     else {
                         // webfont
-                        console.log(`[web font - config] ${key}`);
+                        debug(`[web font - config] ${key}`);
                         _.set(assets, ["webfont", key], {
                             args: json
                         });
@@ -199,7 +199,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                 stream.stop();
             }
             if (imageName === null) {
-                console.log(`[web font - css] ${key}`);
+                debug(`[web font - css] ${key}`);
                 _.set(assets, ["webfont", key], {
                     args: {
                         custom: {
