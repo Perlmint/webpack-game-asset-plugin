@@ -1,1 +1,1 @@
-/// <reference path="./loader.d.ts" />
+/// <reference path="../loader.d.ts" />
