@@ -35,6 +35,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 continue;
             }
             if (file.query["raw"]) {
+                toCopy["image"][key] = file;
                 continue;
             }
 
