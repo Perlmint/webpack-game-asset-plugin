@@ -67,7 +67,7 @@
     "audiosprite": "^0.6.0",
     "bitmapfont": "^0.1.0",
     "fluent-ffmpeg": "^2.1.2",
-    "node-sprite-generator": "^0.10.2",
+    "gm": "^1.23.0",
     "stream-buffers": "^3.0.1",
     "xml2js": "^0.4.17"
   },

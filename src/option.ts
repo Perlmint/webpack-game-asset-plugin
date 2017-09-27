@@ -137,6 +137,18 @@ export interface GameAssetPluginOption {
      */
     padding?: number;
     /**
+     * sprite atlas max width
+     *
+     * @default 2048
+     */
+    maxWidth?: number;
+    /**
+     * sprite atlas max height
+     *
+     * @default 2048
+     */
+    maxHeight?: number;
+    /**
      * Path of file containing generating entry html option
      *
      * @see [[EntryOption]]
@@ -290,7 +302,9 @@ export interface InternalOption {
     listOut: string;
     compositor?: nsg.Compositor;
     atlasOption: {
-        padding?: number;
+        padding: number;
+        width: number;
+        height: number;
     };
     entryOption(context: string): bb<EntryOption>;
     mergeJson: boolean;
@@ -379,7 +393,9 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         listOut: pubOption.listOut,
         compositor: pubOption.compositor,
         atlasOption: {
-            padding: pubOption.padding
+            padding: pubOption.padding || 0,
+            width: pubOption.maxWidth || 2048,
+            height: pubOption.maxHeight || 2048
         },
         entryOption(context: string) {
             return readFileAsync(
