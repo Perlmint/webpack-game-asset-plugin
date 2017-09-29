@@ -1,6 +1,6 @@
 {
   "name": "webpack-game-asset-plugin",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "webpack plugin for HTML5 game asset",
   "main": "plugin.js",
   "types": "plugin.d.ts",
@@ -57,10 +57,12 @@
     "jsonpath": "^0.2.11",
     "loader-utils": "^1.1.0",
     "lodash": "^4.17.4",
+    "maxrects-packer": "^1.2.0",
     "mime-types": "^2.1.15",
     "onecolor": "^3.0.4",
     "tmp": "0.0.31",
-    "uglify-js": "^3.0.20"
+    "uglify-js": "^3.0.20",
+    "xml-writer": "^1.7.0"
   },
   "optionalDependencies": {
     "@mapbox/shelf-pack": "^3.0.0",

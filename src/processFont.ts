@@ -12,7 +12,8 @@ import { createInterface } from "readline";
 async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
     debug(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
-    const ShelfPack = await import("@mapbox/shelf-pack");
+    const Packer = await import("maxrects-packer");
+    const Writer = await import("xml-writer");
     const cacheKey = `font_${key}`;
     const [imageName, fontInfoName] = [`${name}.png`, `${name}.fnt`];
     _.set(assets, ["bitmapFont", key], {
@@ -44,36 +45,83 @@ ${JSON.stringify(conf)}`);
     const chars = conf.characters.split("").map(ch => ({
         ch, ...font.glyph(ch)
     }));
-    const pack = new ShelfPack(0, 0, { autoResize: true });
+    const pack = new Packer(2048, 2048, conf.gap);
     let lineHeight = 0;
     const requests = chars.map((info, i) => {
         const chHeight = Math.ceil(info.y2 - info.y1);
         lineHeight = Math.max(lineHeight, chHeight);
         return {
-            id: i,
-            w: Math.ceil(info.x2 - info.x1) + conf.gap * 2,
-            h: chHeight + conf.gap * 2
+            data: i,
+            width: Math.ceil(info.x2 - info.x1) + conf.gap * 2,
+            height: chHeight + conf.gap * 2
         };
     });
-    const bins = pack.pack(requests);
-    const canvas = new Canvas(pack.w + conf.gap, pack.h + conf.gap);
-    const fntInfo = [`<font><info face="${key}" size="${font.size}" bold="0" italic="0" charset="" unicode="" stretchH="100" smooth="1" aa="1" padding="${conf.gap},${conf.gap},${conf.gap},${conf.gap}" spacing="0,0" outline="0"/><common lineHeight="${lineHeight}" base="0" scaleW="${pack.w + conf.gap * 2}" scaleH="${pack.h + conf.gap * 2}" pages="1" packed="0"/><pages><page id="0" file="${basename(imageName)}"/></pages><chars count="${bins.length}">`];
-    for (const bin of bins) {
-        const ch = chars[bin.id as number];
-        font.draw(canvas, ch.ch, Math.ceil(bin.x - ch.x1 + conf.gap), Math.ceil(bin.y + ch.y2));
-        fntInfo.push(`<char id="${ch.ch.charCodeAt(0)}" x="${bin.x}" y="${bin.y}" width="${bin.w - conf.gap}" height="${bin.h - conf.gap}" xoffset="${-ch.x1 | 0}" yoffset="${(ch.ascender - ch.y2 + ch.y1) | 0}" xadvance="${bin.w - conf.gap * 2}" page="0" chnl="15"/>`);
+    const bins = pack.addArray(...requests);
+    const writer = new Writer();
+    writer.startDocument();
+    writer.startElement("font");
+    writer.startElement("info")
+        .writeAttribute("face", key)
+        .writeAttribute("size", font.size)
+        .writeAttribute("bold", 0)
+        .writeAttribute("italic", 0)
+        .writeAttribute("charset", "")
+        .writeAttribute("unicode", "")
+        .writeAttribute("stretchH", 100)
+        .writeAttribute("smooth", 1)
+        .writeAttribute("aa", 1)
+        .writeAttribute("padding", `${conf.gap},${conf.gap},${conf.gap},${conf.gap}`)
+        .writeAttribute("spacing", "0,0")
+        .writeAttribute("outline", 0);
+    writer.startElement("common")
+        .writeAttribute("lineHeight", lineHeight)
+        .writeAttribute("base", 0)
+        .writeAttribute("scaleW", 2048)
+        .writeAttribute("scaleH", 2048)
+        .writeAttribute("page", 1)
+        .writeAttribute("packed", 0);
+    writer.startElement("pages");
+    for (const bin of pack.bins) {
+        writer.startElement("page")
+            .writeAttribute("id", pack.bins.indexOf(bin))
+            .writeAttribute("file", basename(imageName));
+        writer.endElement();
     }
-    fntInfo.push("</chars></font>");
-    const imageBlob = canvas.blob(ImageFormat.PNG);
-    context.compilation.assets[imageName] = {
-        size: () => imageBlob.length,
-        source: () => imageBlob
-    };
-    const fntInfoBuffer = new Buffer(fntInfo.join(""), "utf-8");
-    context.compilation.assets[fontInfoName] = {
-        size: () => fntInfoBuffer.length,
-        source: () => fntInfoBuffer
-    };
+    writer.endElement();
+    for (const bin of pack.bins) {
+        const canvas = new Canvas(bin.width, bin.height);
+        writer.startElement("chars")
+            .writeAttribute("count", bin.rects.length);
+        const page = pack.bins.indexOf(bin);
+        for (const rect of bin.rects) {
+            const ch = chars[rect.data as number];
+            font.draw(canvas, ch.ch, Math.ceil(rect.x - ch.x1), Math.ceil(rect.y + ch.y2));
+            writer.startElement("char")
+                .writeAttribute("id", ch.ch.charCodeAt(0))
+                .writeAttribute("x", rect.x)
+                .writeAttribute("y", rect.y)
+                .writeAttribute("width", rect.width)
+                .writeAttribute("height", rect.height)
+                .writeAttribute("xoffset", -ch.x1 | 0)
+                .writeAttribute("yoffset", (ch.ascender - ch.y2 + ch.y1) | 0)
+                .writeAttribute("xadvance", rect.width)
+                .writeAttribute("page", page)
+                .writeAttribute("chnl", 15)
+                .endElement();
+            const imageBlob = canvas.blob(ImageFormat.PNG);
+            context.compilation.assets[imageName] = {
+                size: () => imageBlob.length,
+                source: () => imageBlob
+            };
+        }
+
+        writer.endDocument();
+        const fntInfoBuffer = new Buffer(writer.toString(), "utf-8");
+        context.compilation.assets[fontInfoName] = {
+            size: () => fntInfoBuffer.length,
+            source: () => fntInfoBuffer
+        };
+    }
 }
 
 /**
