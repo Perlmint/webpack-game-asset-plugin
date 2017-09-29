@@ -261,8 +261,8 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                                 frame: {
                                     h: src.h,
                                     w: src.w,
-                                    x: src.x,
-                                    y: src.y
+                                    x: src.x + option.atlasOption.padding,
+                                    y: src.y + option.atlasOption.padding
                                 },
                                 rotated: false,
                                 sourceSize: {
