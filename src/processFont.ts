@@ -15,9 +15,9 @@ async function renderBitmapFont(key: string, name: string, assets: Assets, conte
     const Packer = await import("maxrects-packer");
     const Writer = await import("xml-writer");
     const cacheKey = `font_${key}`;
-    const [imageName, fontInfoName] = [`${name}.png`, `${name}.fnt`];
+    const fontInfoName = `${key}.fnt`;
     _.set(assets, ["bitmapFont", key], {
-        args: [imageName, fontInfoName]
+        outFile: fontInfoName
     });
     if (_.isEqual(context.cache[cacheKey], conf)) {
         return;
@@ -82,9 +82,10 @@ ${JSON.stringify(conf)}`);
         .writeAttribute("packed", 0);
     writer.startElement("pages");
     for (const bin of pack.bins) {
+        const idx = pack.bins.indexOf(bin);
         writer.startElement("page")
-            .writeAttribute("id", pack.bins.indexOf(bin))
-            .writeAttribute("file", basename(imageName));
+            .writeAttribute("id", idx)
+            .writeAttribute("file", basename(`${name}_${idx}.png`));
         writer.endElement();
     }
     writer.endElement();
@@ -93,6 +94,7 @@ ${JSON.stringify(conf)}`);
         writer.startElement("chars")
             .writeAttribute("count", bin.rects.length);
         const page = pack.bins.indexOf(bin);
+        const idx = pack.bins.indexOf(bin);
         for (const rect of bin.rects) {
             const ch = chars[rect.data as number];
             font.draw(canvas, ch.ch, Math.ceil(rect.x - ch.x1), Math.ceil(rect.y + ch.y2));
@@ -108,20 +110,19 @@ ${JSON.stringify(conf)}`);
                 .writeAttribute("page", page)
                 .writeAttribute("chnl", 15)
                 .endElement();
-            const imageBlob = canvas.blob(ImageFormat.PNG);
-            context.compilation.assets[imageName] = {
-                size: () => imageBlob.length,
-                source: () => imageBlob
-            };
         }
-
-        writer.endDocument();
-        const fntInfoBuffer = new Buffer(writer.toString(), "utf-8");
-        context.compilation.assets[fontInfoName] = {
-            size: () => fntInfoBuffer.length,
-            source: () => fntInfoBuffer
+        const imageBlob = canvas.blob(ImageFormat.PNG);
+        context.compilation.assets[`${key}_${idx}.png`] = {
+            size: () => imageBlob.length,
+            source: () => imageBlob
         };
     }
+    writer.endDocument();
+    const fntInfoBuffer = new Buffer(writer.toString(), "utf-8");
+    context.compilation.assets[fontInfoName] = {
+        size: () => fntInfoBuffer.length,
+        source: () => fntInfoBuffer
+    };
 }
 
 /**
@@ -234,7 +235,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     }
                 }
                 catch (e) {
-
+                    context.compilation.warnings.push(e.toString());
                 }
             }
         }
