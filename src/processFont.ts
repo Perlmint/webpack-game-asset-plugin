@@ -56,7 +56,7 @@ ${JSON.stringify(conf)}`);
             height: chHeight + conf.gap * 2
         };
     });
-    const bins = pack.addArray(...requests);
+    const bins = pack.addArray(requests);
     const writer = new Writer();
     writer.startDocument();
     writer.startElement("font");

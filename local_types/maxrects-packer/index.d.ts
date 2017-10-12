@@ -1,7 +1,7 @@
 declare class MaxRectsPacker implements MaxRectsPacker.IMaxRectsPacker {
     constructor(maxWidth?: number, maxHeight?: number, padding?: number, options?: MaxRectsPacker.Option);
     add(width: number, height: number, data: any): void;
-    addArray(...objects: MaxRectsPacker.Item[]): void;
+    addArray(objects: MaxRectsPacker.Item[]): void;
     save(): MaxRectsPacker.Bins;
     load(bins: MaxRectsPacker.Bins): void;
     bins: MaxRectsPacker.Bins;
@@ -10,7 +10,7 @@ declare class MaxRectsPacker implements MaxRectsPacker.IMaxRectsPacker {
 declare namespace MaxRectsPacker {
     interface IMaxRectsPacker {
         add(width: number, height: number, data: any): void;
-        addArray(...objects: Item[]): void;
+        addArray(objects: Item[]): void;
         save(): Bins;
         load(bins: Bins): void;
         bins: Bins;
