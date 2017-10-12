@@ -13,3 +13,4 @@ tsconfig.json
 docs
 .vscode
 yarn.lock
+*.js.map
