@@ -448,6 +448,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                                     hash: hash.digest("hex"),
                                     srcFile,
                                     outFile,
+                                    query: {},
                                     localized: [""]
                                 };
                             }
