@@ -6,6 +6,7 @@ import { InternalOption, FilesByType, File, isFile, Assets, ProcessContext, Atla
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 import { createHash } from "crypto";
+import * as Packer from "maxrects-packer";
 
 /**
  * @hidden
@@ -19,146 +20,67 @@ interface SourceTree<T>  {
  * @hidden
  */
 interface Size {
-    w: number;
-    h: number;
+    width: number;
+    height: number;
 }
 
 /**
  * @hidden
  */
-async function getImageSize(path: string, padding: number = 0) {
+async function getImageSize(path: string) {
     const gm = await import("gm");
     return new Promise<Size>((resolve, reject) => gm(path).size((e, v) => {
         if (e != null) {
             return reject(e);
         }
         resolve({
-            w: v.width + padding * 2,
-            h: v.height + padding * 2
+            width: v.width,
+            height: v.height
         });
     }));
-}
-
-import * as ShelfPack from "@mapbox/shelf-pack";
-
-type Packs = {
-    pack?: [ShelfPack, ShelfPack.Bin[]][]
-    sub?: { [name: string]: Packs };
-};
-
-function size(p: [ShelfPack, ShelfPack.Bin[]]) {
-    return _.reduce(p[1], (acc, o) => acc + o.w * o.h, 0);
-}
-
-function mergePack(width: number, height: number, p1: ShelfPack.Bin[], p2: ShelfPack.Bin[]) {
-    const pack = new ShelfPack(width, height);
-    const all = [...p1, ...p2];
-    const packed = pack.pack(sortBin(all));
-    (pack as any).shrink();
-    if (packed.length === all.length) {
-        return [pack, packed] as [ShelfPack, ShelfPack.Bin[]];
-    } else {
-        return null;
-    }
-}
-
-function sortBin(bins: ShelfPack.RequestShort[]) {
-    return _.orderBy(bins, [(b) => Math.floor(b.w * b.h / 10), "w", "h"], ["desc", "desc", "desc"]);
 }
 
 /**
  * @hidden
  */
-async function packImages(width: number, height: number, tree: SourceTree<File & Size>) {
-    let packs: Packs = {};
-    {
-        let name: string[] = [];
-        while (true) {
-            if (tree.files !== undefined) {
-                break;
-            }
-            if (tree.dirs === undefined) {
-                break;
-            }
-            if (_.size(tree.dirs) !== 1) {
-                break;
-            }
-            name.push(_.keys(tree.dirs)[0]);
-            tree = _.values(tree.dirs)[0];
+async function packImages(width: number, height: number, padding: number, tree: SourceTree<File & Size>) {
+    let pack: Packer = new Packer(width, height, padding);
+    let name: string[] = [];
+    while (true) {
+        if (tree.files !== undefined) {
+            break;
         }
+        if (tree.dirs === undefined) {
+            break;
+        }
+        if (_.size(tree.dirs) !== 1) {
+            break;
+        }
+        name.push(_.keys(tree.dirs)[0]);
+        tree = _.values(tree.dirs)[0];
+    }
 
-        const queue: [SourceTree<File & Size>, string][] = [[tree, `sub.${name.join("/")}`]];
-        while (queue.length !== 0) {
-            const [node, name] = queue.pop();
-            if (node.dirs !== undefined) {
-                queue.push(..._.map(
-                    node.dirs,
-                    (o, k) => [o, `${name}.sub.${k}`] as [SourceTree<File & Size>, string]
-                ));
-            }
-            if (node.files !== undefined) {
-                // leaf node
-                let _p: Packs = _.get(packs, name);
-                if (_p === undefined) {
-                    _p = { pack: [] };
-                    _.setWith(packs, name, _p, Object);
-                }
-                let files = sortBin(_.map(node.files, f => ({
-                    id: f.srcFile,
-                    w: f.w,
-                    h: f.h
-                })));
-                while (true) {
-                    const pack = new ShelfPack(width, height);
-                    const packed = pack.pack(files);
-                    _p.pack.push([pack, packed]);
-                    (pack as any).shrink();
-                    if (packed.length !== files.length) {
-                        // some images remain
-                        files = _.differenceBy(files, packed, "id");
-                    } else {
-                        break;
-                    }
-                }
-            }
+    const queue: [SourceTree<File & Size>, string][] = [[tree, `sub.${name.join("/")}`]];
+    while (queue.length !== 0) {
+        const [node, name] = queue.pop();
+        if (node.dirs !== undefined) {
+            queue.push(..._.map(
+                node.dirs,
+                (o, k) => [o, `${name}.sub.${k}`] as [SourceTree<File & Size>, string]
+            ));
+        }
+        if (node.files !== undefined) {
+            // leaf node
+            let files = _.map(node.files, f => ({
+                data: f.srcFile,
+                width: f.width,
+                height: f.height
+            }));
+            pack.addArray(files);
         }
     }
 
-    // merge small ones
-    {
-        const sub_queue: [Packs, string][] = _.map(packs.sub, (s, k) => [s, k] as [Packs, string]);
-        const bin_queue: [ShelfPack, ShelfPack.Bin[]][] = [];
-        while (sub_queue.length !== 0) {
-            const [node, name] = sub_queue.pop();
-            if (node.sub !== undefined) {
-                sub_queue.push(..._.map(
-                    node.sub,
-                    (o, k) => [o, `${name}.sub.${k}`] as [Packs, string]
-                ));
-            } else if (node.pack !== undefined) {
-                bin_queue.push(...node.pack);
-            }
-        }
-        let ret: [ShelfPack, ShelfPack.Bin[]][] = [];
-        let currentPack = bin_queue.pop();
-        while (bin_queue.length !== 0) {
-            const new_pack = bin_queue.pop();
-            const __ = mergePack(width, height, currentPack[1], new_pack[1]);
-            if (__ === null) {
-                if (size(currentPack) > size(new_pack)) {
-                    ret.push(currentPack);
-                    currentPack = new_pack;
-                } else {
-                    ret.push(new_pack);
-                }
-            } else {
-                currentPack = __;
-            }
-        }
-        ret.push(currentPack);
-
-        return ret;
-    }
+    return pack;
 }
 
 /**
@@ -195,8 +117,8 @@ export async function processImages(context: ProcessContext, option: InternalOpt
             return;
         }
         // oversize!
-        const size = await getImageSize(file.srcFile, option.atlasOption.padding);
-        if (size.w > option.atlasOption.width || size.h > option.atlasOption.height) {
+        const size = await getImageSize(file.srcFile);
+        if (size.width > option.atlasOption.width || size.height > option.atlasOption.height) {
             toCopy["image"][key] = file;
 
             return;
@@ -214,7 +136,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 const localizedSrc = localJoinPath(parsedPath.dir, `${parsedPath.name}${lang}${parsedPath.ext}`);
                 _.setWith(localizeds, _.concat(["dirs", lang], ...path), _.defaults({
                     srcFile: localizedSrc
-                }, file, await getImageSize(localizedSrc, option.atlasOption.padding)), Object);
+                }, file, await getImageSize(localizedSrc)), Object);
             }
             return;
         }
@@ -228,21 +150,21 @@ export async function processImages(context: ProcessContext, option: InternalOpt
         node.push(Object.assign(file, size));
     }));
 
-    const packs = await packImages(option.atlasOption.width, option.atlasOption.height, sources);
+    const pack = await packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, sources);
 
-    await bb.all(_.map(packs, (info, idx) => new bb(async (resolve, reject) => {
+    await bb.all(_.map(pack.bins, (bin, idx) => new bb(async (resolve, reject) => {
         try {
             const outName = idx.toString(10);
 
             const gm = await import("gm");
-            const img = gm(info[0].w, info[0].h, "#FFFFFFFF");
-            for (const bin of info[1]) {
+            const img = gm(bin.width, bin.height, "#FFFFFFFF");
+            for (const rect of bin.rects) {
                 (img as any).in(
-                    "-geometry", `${bin.w}x${bin.h}`
+                    "-geometry", `${rect.width}x${rect.height}`
                 ).in(
-                    "-page", `+${bin.x + option.atlasOption.padding}+${bin.y + option.atlasOption.padding}`
+                    "-page", `+${rect.x}+${rect.y}`
                 ).in(
-                    bin.id
+                    rect.data
                 );
             }
             img.mosaic();
@@ -254,26 +176,26 @@ export async function processImages(context: ProcessContext, option: InternalOpt
 
                 const frameInfo = {
                     frames: _.fromPairs(_.map(
-                        info[1],
+                        bin.rects,
                         src => {
-                            const file = binFileMap[src.id];
+                            const file = binFileMap[src.data];
                             return [file.name, {
                                 frame: {
-                                    h: src.h,
-                                    w: src.w,
-                                    x: src.x + option.atlasOption.padding,
-                                    y: src.y + option.atlasOption.padding
+                                    h: src.height,
+                                    w: src.width,
+                                    x: src.x,
+                                    y: src.y
                                 },
                                 rotated: false,
                                 sourceSize: {
-                                    h: src.h,
-                                    w: src.w
+                                    h: src.height,
+                                    w: src.width
                                 },
                                 spriteSourceSize: {
                                     x: 0,
                                     y: 0,
-                                    h: src.h,
-                                    w: src.w
+                                    h: src.height,
+                                    w: src.width
                                 },
                                 trimmed: false
                             }];
@@ -283,13 +205,13 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                         image: outName + ".png",
                         scale: 1,
                         size: {
-                            w: info[0].w,
-                            h: info[0].h
+                            w: bin.width,
+                            h: bin.height
                         }
                     }
                 };
-                for (const src of info[1]) {
-                    const file = binFileMap[src.id];
+                for (const src of bin.rects) {
+                    const file = binFileMap[src.data];
                     file.outFile = [outName + ".png", outName + ".json"];
                     file.outName = outName;
                     file.outType = "atlas";
