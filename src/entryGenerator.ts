@@ -352,7 +352,7 @@ function entryLoaded${hash}() {
         if (option.offline !== undefined) {
             $("body").append(`<script>
 if ('serviceWorker' in navigator && location.protocol === "https:") {
-    navigator.serviceWorker.register("${prefix}offline.js").catch(() => {});
+    navigator.serviceWorker.register("${prefix}offline.js").catch(function() {});
 }</script>`);
             const params: {[key: string]: string} = {
                 title: option.title,
