@@ -1,6 +1,5 @@
 node_modules
-*.ts
-!*.d.ts
+src
 *~
 *.log
 types
@@ -12,3 +11,6 @@ tsconfig.json
 .npmignore
 *.tgz
 docs
+.vscode
+yarn.lock
+*.js.map

@@ -2,6 +2,7 @@ import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as wp from "webpack";
+import { join } from "path";
 import { Fontdeck, Google, Monotype, Typekit, Custom as CustomWebFont } from "webfontloader";
 import { readFileAsync } from "./util";
 import { EntryOption } from "./entryGenerator";
@@ -15,10 +16,12 @@ export interface File {
     outFile: string | string[];
     srcFile: string;
     localized: string[];
+    referencedModules?: string[];
     hash: string;
     data?: string;
     type?: string;
     outType?: string;
+    outName?: string;
     query?: {[key: string]: string};
 }
 
@@ -134,6 +137,18 @@ export interface GameAssetPluginOption {
      */
     padding?: number;
     /**
+     * sprite atlas max width
+     *
+     * @default 2048
+     */
+    maxWidth?: number;
+    /**
+     * sprite atlas max height
+     *
+     * @default 2048
+     */
+    maxHeight?: number;
+    /**
      * Path of file containing generating entry html option
      *
      * @see [[EntryOption]]
@@ -175,6 +190,10 @@ export interface GameAssetPluginOption {
      * i18n resource postfix list
      */
     i18nLanguages?: string[];
+    /**
+     * add file hash to emitted asset filename
+     */
+    addHashToAsset?: boolean;
 }
 
 export type AudioCodec = "ogg" | "m4a" | "mp3" | "ac3";
@@ -273,7 +292,7 @@ export type Fonts = {[key: string]: (WebFontConf | BitmapFontConf | LocalFontCon
 export interface InternalOption {
     makeAtlas: boolean;
     audioSprite: boolean;
-    atlasMap: () => bb<AtlasMapType>;
+    atlasMap: (context: string) => bb<AtlasMapType>;
     atlasMapFile?: string;
     assetRoots: {
         src: string;
@@ -283,15 +302,18 @@ export interface InternalOption {
     listOut: string;
     compositor?: nsg.Compositor;
     atlasOption: {
-        padding?: number;
+        padding: number;
+        width: number;
+        height: number;
     };
-    entryOption(): bb<EntryOption>;
+    entryOption(context: string): bb<EntryOption>;
     mergeJson: boolean;
     refPresets: { [key: string]: string };
     collectAll: boolean;
     emitAllAssetsList: boolean;
     audioEncode: string[];
     i18nLanguages: string[];
+    addHashToAsset: boolean;
 }
 
 /**
@@ -330,7 +352,7 @@ function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
  * @hidden
  */
 export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
-    let atlasMapFunc: () => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
+    let atlasMapFunc: (context: string) => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
         excludes: [],
         pack: [
             { name: "", group: 0 }
@@ -339,8 +361,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
     const atlasMap = pubOption.atlasMap;
     let atlasMapFile: string = undefined;
     if (typeof atlasMap === "string") {
-        atlasMapFunc = () => readFileAsync(
-            atlasMap
+        atlasMapFunc = (context: string) => readFileAsync(
+            join(context, atlasMap)
         ).then(
             buf => JSON.parse(buf.toString("utf-8")) as (string | string[])[]
         ).then(sortAtlasMap);
@@ -371,11 +393,13 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         listOut: pubOption.listOut,
         compositor: pubOption.compositor,
         atlasOption: {
-            padding: pubOption.padding
+            padding: pubOption.padding || 0,
+            width: pubOption.maxWidth || 2048,
+            height: pubOption.maxHeight || 2048
         },
-        entryOption() {
+        entryOption(context: string) {
             return readFileAsync(
-                pubOption.entryOption
+                join(context, pubOption.entryOption)
             ).then(
                 buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
             );
@@ -386,7 +410,8 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         collectAll: pubOption.collectAll == null ? false : pubOption.collectAll,
         emitAllAssetsList: pubOption.emitAllAssetsList || false,
         audioEncode: pubOption.audioEncode || [],
-        i18nLanguages: pubOption.i18nLanguages || []
+        i18nLanguages: pubOption.i18nLanguages || [],
+        addHashToAsset: pubOption.addHashToAsset || false
     } as InternalOption;
 }
 

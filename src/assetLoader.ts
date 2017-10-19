@@ -1,7 +1,7 @@
 import * as wp from "webpack";
 import { relative, extname, posix, normalize, parse } from "path";
 import { defaultsDeep, includes } from "lodash";
-import { Compilation } from "./option";
+import { Compilation, InternalOption } from "./option";
 import { localJoinPath, collectDependentAssets, getFileHash } from "./util";
 import * as loaderUtils from "loader-utils";
 import * as _ from "lodash";
@@ -21,6 +21,7 @@ function getAssetInfo(context: wp.loader.LoaderContext, resourcePath: string) {
 
 export default function(this: wp.loader.LoaderContext, content: Buffer) {
     const query: {[key: string]: string} = loaderUtils.getOptions(this) || {};
+    const option: InternalOption = this._compilation.__game_asset_plugin_option__;
     if (query["info"]) {
         const refModule = _.find(this._compilation._modules, m => m.resource === query["info"]);
         const hash = createHash("md5");
@@ -41,7 +42,12 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
         const hashStr = hash.digest("hex");
 
         const assets = defaultsDeep<any, Compilation>(this._compilation, { _game_asset_: {} })._game_asset_;
-        const outPath = query["raw"] ? path : undefined;
+        let outFile = name;
+        if (option.addHashToAsset) {
+            outFile += `.${hashStr}`;
+        }
+        outFile += ext;
+        const outPath = query["raw"] ? outFile : undefined;
         if (assets[this.resourcePath] === undefined) {
             assets[this.resourcePath] = {
                 name,
@@ -49,12 +55,12 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
                 srcFile,
                 localized: [""],
                 hash: hashStr,
-                outFile: `${name}.${hashStr}${ext}`,
+                outFile,
                 query
             };
         }
 
-        cb(undefined, `exports = module.exports = { default: "${name}", path: "${outPath}", __esModule: true }`);
+        cb(undefined, `exports = module.exports = { default: "${name}", path: ${JSON.stringify(outPath)}, __esModule: true }`);
     }
 }
 

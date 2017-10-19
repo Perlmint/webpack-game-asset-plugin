@@ -9,14 +9,15 @@ import { createInterface } from "readline";
 /**
  * @hidden
  */
-async function renderBitmapFont(key: string, hash: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
-    console.log(`[bitmap font - render] ${key}`);
+async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
+    debug(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
-    const ShelfPack = await import("@mapbox/shelf-pack");
+    const Packer = await import("maxrects-packer");
+    const Writer = await import("xml-writer");
     const cacheKey = `font_${key}`;
-    const [imageName, fontInfoName] = [`${key}.${hash}.png`, `${key}.${hash}.fnt`];
+    const fontInfoName = `${key}.fnt`;
     _.set(assets, ["bitmapFont", key], {
-        args: [imageName, fontInfoName]
+        outFile: fontInfoName
     });
     if (_.isEqual(context.cache[cacheKey], conf)) {
         return;
@@ -44,32 +45,80 @@ ${JSON.stringify(conf)}`);
     const chars = conf.characters.split("").map(ch => ({
         ch, ...font.glyph(ch)
     }));
-    const pack = new ShelfPack(0, 0, { autoResize: true });
+    const pack = new Packer(2048, 2048, conf.gap);
     let lineHeight = 0;
     const requests = chars.map((info, i) => {
         const chHeight = Math.ceil(info.y2 - info.y1);
         lineHeight = Math.max(lineHeight, chHeight);
         return {
-            id: i,
-            w: Math.ceil(info.x2 - info.x1) + conf.gap * 2,
-            h: chHeight + conf.gap * 2
+            data: i,
+            width: Math.ceil(info.x2 - info.x1) + conf.gap * 2,
+            height: chHeight + conf.gap * 2
         };
     });
-    const bins = pack.pack(requests);
-    const canvas = new Canvas(pack.w + conf.gap, pack.h + conf.gap);
-    const fntInfo = [`<font><info face="${key}" size="${font.size}" bold="0" italic="0" charset="" unicode="" stretchH="100" smooth="1" aa="1" padding="${conf.gap},${conf.gap},${conf.gap},${conf.gap}" spacing="0,0" outline="0"/><common lineHeight="${lineHeight}" base="0" scaleW="${pack.w + conf.gap * 2}" scaleH="${pack.h + conf.gap * 2}" pages="1" packed="0"/><pages><page id="0" file="${basename(imageName)}"/></pages><chars count="${bins.length}">`];
-    for (const bin of bins) {
-        const ch = chars[bin.id as number];
-        font.draw(canvas, ch.ch, Math.ceil(bin.x - ch.x1 + conf.gap), Math.ceil(bin.y + ch.y2));
-        fntInfo.push(`<char id="${ch.ch.charCodeAt(0)}" x="${bin.x}" y="${bin.y}" width="${bin.w - conf.gap}" height="${bin.h - conf.gap}" xoffset="${-ch.x1 | 0}" yoffset="${(ch.ascender - ch.y2 + ch.y1) | 0}" xadvance="${bin.w - conf.gap * 2}" page="0" chnl="15"/>`);
+    const bins = pack.addArray(requests);
+    const writer = new Writer();
+    writer.startDocument();
+    writer.startElement("font");
+    writer.startElement("info")
+        .writeAttribute("face", key)
+        .writeAttribute("size", font.size)
+        .writeAttribute("bold", 0)
+        .writeAttribute("italic", 0)
+        .writeAttribute("charset", "")
+        .writeAttribute("unicode", "")
+        .writeAttribute("stretchH", 100)
+        .writeAttribute("smooth", 1)
+        .writeAttribute("aa", 1)
+        .writeAttribute("padding", `${conf.gap},${conf.gap},${conf.gap},${conf.gap}`)
+        .writeAttribute("spacing", "0,0")
+        .writeAttribute("outline", 0);
+    writer.startElement("common")
+        .writeAttribute("lineHeight", lineHeight)
+        .writeAttribute("base", 0)
+        .writeAttribute("scaleW", 2048)
+        .writeAttribute("scaleH", 2048)
+        .writeAttribute("page", 1)
+        .writeAttribute("packed", 0);
+    writer.startElement("pages");
+    for (const bin of pack.bins) {
+        const idx = pack.bins.indexOf(bin);
+        writer.startElement("page")
+            .writeAttribute("id", idx)
+            .writeAttribute("file", basename(`${name}_${idx}.png`));
+        writer.endElement();
     }
-    fntInfo.push("</chars></font>");
-    const imageBlob = canvas.blob(ImageFormat.PNG);
-    context.compilation.assets[imageName] = {
-        size: () => imageBlob.length,
-        source: () => imageBlob
-    };
-    const fntInfoBuffer = new Buffer(fntInfo.join(""), "utf-8");
+    writer.endElement();
+    for (const bin of pack.bins) {
+        const canvas = new Canvas(bin.width, bin.height);
+        writer.startElement("chars")
+            .writeAttribute("count", bin.rects.length);
+        const page = pack.bins.indexOf(bin);
+        const idx = pack.bins.indexOf(bin);
+        for (const rect of bin.rects) {
+            const ch = chars[rect.data as number];
+            font.draw(canvas, ch.ch, Math.ceil(rect.x - ch.x1), Math.ceil(rect.y + ch.y2));
+            writer.startElement("char")
+                .writeAttribute("id", ch.ch.charCodeAt(0))
+                .writeAttribute("x", rect.x)
+                .writeAttribute("y", rect.y)
+                .writeAttribute("width", rect.width)
+                .writeAttribute("height", rect.height)
+                .writeAttribute("xoffset", -ch.x1 | 0)
+                .writeAttribute("yoffset", (ch.ascender - ch.y2 + ch.y1) | 0)
+                .writeAttribute("xadvance", rect.width)
+                .writeAttribute("page", page)
+                .writeAttribute("chnl", 15)
+                .endElement();
+        }
+        const imageBlob = canvas.blob(ImageFormat.PNG);
+        context.compilation.assets[`${key}_${idx}.png`] = {
+            size: () => imageBlob.length,
+            source: () => imageBlob
+        };
+    }
+    writer.endDocument();
+    const fntInfoBuffer = new Buffer(writer.toString(), "utf-8");
     context.compilation.assets[fontInfoName] = {
         size: () => fntInfoBuffer.length,
         source: () => fntInfoBuffer
@@ -79,22 +128,22 @@ ${JSON.stringify(conf)}`);
 /**
  * @hidden
  */
-async function modifyBitmapFontXML(key: string, assets: Assets, context: ProcessContext, buf: Buffer) {
+async function modifyBitmapFontXML(key: string, name: string, assets: Assets, context: ProcessContext, buf: Buffer) {
     let imageName: string;
     try {
         const xml2js = await import("xml2js");
         const xml = await parseXMLString(buf);
         imageName = xml.font.pages[0].page[0]["$"].file;
         const ext = extname(imageName);
-        xml.font.pages[0].page[0]["$"].file = key + ext;
+        xml.font.pages[0].page[0]["$"].file = name + ext;
         const fntString = new xml2js.Builder({
             trim: true
         }).buildObject(xml);
-        context.compilation.assets[key + ".fnt"] = {
+        context.compilation.assets[name + ".fnt"] = {
             size: () => fntString.length,
             source: () => fntString
         };
-        console.log(`[bitmap font - xml] ${key}`);
+        debug(`[bitmap font - xml] ${key}`);
     }
     catch (e) {
         return null;
@@ -105,7 +154,7 @@ async function modifyBitmapFontXML(key: string, assets: Assets, context: Process
 /**
  * @hidden
  */
-async function modifyBitmapFontText(key: string, assets: Assets, context: ProcessContext, stream: Readable) {
+async function modifyBitmapFontText(key: string, name: string, assets: Assets, context: ProcessContext, stream: Readable) {
     return new bb<string>(resolve => {
         const rl = createInterface(stream);
         let imageName: string;
@@ -116,7 +165,7 @@ async function modifyBitmapFontText(key: string, assets: Assets, context: Proces
                 const s = line.split("file=");
                 imageName = JSON.parse(s[1]);
                 const ext = extname(imageName);
-                s[1] = `"${key}${ext}"`;
+                s[1] = `"${name}${ext}"`;
                 line = s.join("file=");
                 pageExists = true;
             }
@@ -127,9 +176,9 @@ async function modifyBitmapFontText(key: string, assets: Assets, context: Proces
                 resolve(null);
                 return;
             }
-            console.log(`[bitmap font - text] ${key}`);
+            debug(`[bitmap font - text] ${key}`);
             const atlas = lines.join("\n");
-            context.compilation.assets[key + ".fnt"] = {
+            context.compilation.assets[name + ".fnt"] = {
                 size: () => atlas.length,
                 source: () => atlas
             };
@@ -152,9 +201,13 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
     for (const key of _.keys(fonts)) {
         const conf = fonts[key];
         const ext = conf.ext;
+        let name = key;
+        if (context.option.addHashToAsset) {
+            name += `.${conf.hash}`;
+        }
         const buf = await readFileAsync(conf.srcFile);
         // bitmap font
-        let imageName = await modifyBitmapFontXML(key, assets, context, buf);
+        let imageName = await modifyBitmapFontXML(key, name, assets, context, buf);
         let bufferString: string = undefined;
         let isText = false;
         if (imageName === null) {
@@ -171,18 +224,18 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     json = JSON.parse(bufferString);
                     isText = false;
                     if (isBitmap(json)) {
-                        await renderBitmapFont(key, conf.hash, assets, context, json);
+                        await renderBitmapFont(key, name, assets, context, json);
                     }
                     else {
                         // webfont
-                        console.log(`[web font - config] ${key}`);
+                        debug(`[web font - config] ${key}`);
                         _.set(assets, ["webfont", key], {
                             args: json
                         });
                     }
                 }
                 catch (e) {
-
+                    context.compilation.warnings.push(e.toString());
                 }
             }
         }
@@ -191,21 +244,21 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                 const { ReadableStreamBuffer } = await import("stream-buffers");
                 const stream = new ReadableStreamBuffer();
                 stream.put(bufferString);
-                imageName = await modifyBitmapFontText(key, assets, context, stream);
+                imageName = await modifyBitmapFontText(key, name, assets, context, stream);
                 stream.stop();
             }
             if (imageName === null) {
-                console.log(`[web font - css] ${key}`);
+                debug(`[web font - css] ${key}`);
                 _.set(assets, ["webfont", key], {
                     args: {
                         custom: {
                             families: [key],
-                            urls: [key + ".css"]
+                            urls: [name + ".css"]
                         }
                     }
                 });
                 if (context.isChanged(conf.srcFile)) {
-                    context.compilation.assets[key + ".css"] = {
+                    context.compilation.assets[name + ".css"] = {
                         size: () => bufferString.length,
                         source: () => bufferString
                     };
@@ -217,11 +270,11 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
             const imgExt = extname(imageName);
             conf.outType = "bitmapFont";
             _.set(assets, ["bitmapFont", key], {
-                args: [key + imgExt, key + ".fnt"]
+                args: [name + imgExt, name + ".fnt"]
             });
             if (context.isChanged(imgPath)) {
                 const img = await readFileAsync(imgPath);
-                context.compilation.assets[key + imgExt] = {
+                context.compilation.assets[name + imgExt] = {
                     size: () => img.length,
                     source: () => img
                 };

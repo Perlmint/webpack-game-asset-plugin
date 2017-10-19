@@ -7,16 +7,22 @@
         "noImplicitAny": true,
         "sourceMap": true,
         "declaration": true,
-        "baseUrl": "local_types",
+        "baseUrl": "../local_types",
         "types": [
             "bluebird-global"
-        ]
+        ],
+        "outDir": "../"
     },
     "exclude": [
-        "node_modules",
-        "local_types",
-        "types",
-        "template",
-        "docs"
+        "../node_modules",
+        "../local_types",
+        "../types",
+        "../template",
+        "../docs",
+        "../*.js",
+        "../*.d.ts"
+    ],
+    "include": [
+        "./*.ts"
     ]
 }

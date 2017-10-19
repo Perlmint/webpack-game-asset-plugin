@@ -3,7 +3,7 @@ import { stat, readFile, Stats } from "fs";
 import { parse as parsePath, join as localJoinPath, posix, ParsedPath } from "path";
 import * as _debug from "debug";
 import * as _ from "lodash";
-import { createHash } from "crypto";
+import { createHash, Hash } from "crypto";
 import { Module } from "webpack";
 
 export { fileSync as tmpFile, SynchrounousResult, dirSync as tmpDir } from "tmp";
@@ -54,9 +54,17 @@ export const [
     bb.promisify<any, xml2js.convertableToString>(xml2js.parseString)
 ];
 
-export function collectDependentAssets(module: Module, cache: { [key: string]: string[]}, loaderPath: string) {
-    const dependencies: [any, string][] = _.map(module.dependencies, dep => [dep, module.resource] as [any, string]);
+export function collectDependentAssets(
+    this: {
+        referencedModules: { [key: string]: Module}
+    },
+    module: Module,
+    cache: { [key: string]: string[]},
+    loaderPath: string
+) {
+    const dependencies: [any, string[]][] = _.map(module.dependencies, dep => [dep, [module.resource]] as [any, string[]]);
     const assets: string[] = [];
+    const assetDeps: {[key: string]: string[]} = {};
     while (dependencies.length !== 0) {
         const [dep, from] = dependencies.shift();
         // ignore null module
@@ -74,7 +82,9 @@ export function collectDependentAssets(module: Module, cache: { [key: string]: s
         // depedency is asset
         if (_.some(dep.module.loaders, l => l.loader === loaderPath)) {
             assets.push(dep.module.resource);
-            cache[from].push(dep.module.resource);
+            for (const f of from) {
+                cache[f].push(dep.module.resource);
+            }
         }
         // already cached!
         else if (cache[dep.module.resource]) {
@@ -83,7 +93,7 @@ export function collectDependentAssets(module: Module, cache: { [key: string]: s
         // new normal module
         else {
             cache[dep.module.resource] = [];
-            dependencies.push(..._.map(dep.module.dependencies, d => [d, dep.module.resource] as [any, string]));
+            dependencies.push(..._.map(dep.module.dependencies, d => [d, [dep.module.resource, ...from]] as [any, string[]]));
         }
     }
 
