@@ -55,7 +55,7 @@ export const [
 ];
 
 export function collectDependentAssets(
-    this: {
+    context: {
         referencedModules: { [key: string]: Module}
     },
     module: Module,
@@ -76,7 +76,8 @@ export function collectDependentAssets(
             continue;
         }
         // ignore other referenced module
-        if (_.find(this.referencedModules, m => m.resource === dep.module.resource) !== undefined) {
+        if (_.find(context.referencedModules, m => m.resource === dep.module.resource) !== undefined) {
+            debug("---", dep.module.resource);
             continue;
         }
         // depedency is asset

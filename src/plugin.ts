@@ -128,7 +128,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         this.newContextDependencies = [];
         this.newFileDependencies = [];
 
-        this.prevTimestamps = compilation.fileTimestamps;
+        _.assign(this.prevTimestamps, compilation.fileTimestamps);
         callback();
     }
 
@@ -239,8 +239,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         const compilation = this.compilation;
         _.forEach(this.referencedModules, (module: wp.Module, hash: string) => {
             assetsForModule[module.resource] = [];
-            const assets: string[] = collectDependentAssets(module, assetsForModule, GameAssetPlugin.loaderPath);
+            const assets: string[] = collectDependentAssets(this, module, assetsForModule, GameAssetPlugin.loaderPath);
             const assetsInfo = _.filter(_.uniq(_.concat(
+                this.refAssetCache[module.resource],
                 assets.map(asset => this.assetCache[asset]),
                 _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
             const assetsJson: { [key: string]: { [key: string]: string[] } } = {};
@@ -267,14 +268,16 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         const modules = _.flatten(_.map(this.compilation.chunks, chunk => chunk.getModules()));
         this.referencedModules = Object.assign(this.referencedModules, this.compilation._referenced_modules_);
         const removedModuleHash: string[] = [];
+        const that = this;
         _.forEach(this.referencedModules, (module: wp.Module, hash: string) => {
             if (!_.includes(modules, module)) {
                 removedModuleHash.push(hash);
                 return;
             }
             assetsForModule[module.resource] = [];
-            const assets: string[] = collectDependentAssets(module, assetsForModule, GameAssetPlugin.loaderPath);
+            const assets: string[] = collectDependentAssets(this, module, assetsForModule, GameAssetPlugin.loaderPath);
             const assetsInfo = _.filter(_.uniq(_.concat(
+                this.refAssetCache[module.resource],
                 assets.map(asset => this.assetCache[asset]),
                 _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
             for (const asset of assetsInfo) {
@@ -391,7 +394,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     }
 
     private async extendFiles(allFiles: {[key: string]: File}): Promise<File[]> {
-        const files = _.toPairs(allFiles);
+        const files = _.toPairs(allFiles) as [string, File][];
         for (const kv of files)
         {
             const [key, file] = kv;
@@ -414,6 +417,9 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                     ref = file.query["ref"];
                 }
                 this.refAssetCache[key] = [];
+                if (file.query["async"]) {
+                    this.refAssetCache[key].push(file);
+                }
 
                 if (ref !== null) {
                     const buf = await readFileAsync(file.srcFile);

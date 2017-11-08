@@ -23,9 +23,9 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
     const query: {[key: string]: string} = loaderUtils.getOptions(this) || {};
     const option: InternalOption = this._compilation.__game_asset_plugin_option__;
     if (query["info"]) {
-        const refModule = _.find(this._compilation._modules, m => m.resource === query["info"]);
+        const refModule = _.find<any>(this._compilation._modules, m => m.resource === query["info"]);
         const hash = createHash("md5");
-        hash.update(refModule.identifier() + collectDependentAssets(refModule, {[refModule.resource]: []}, __filename).join(";"));
+        hash.update(refModule.identifier() + collectDependentAssets(this._compilation, refModule, {[refModule.resource]: []}, __filename).join(";"));
         const hashStr = hash.digest("hex") + ".assets";
         defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[hashStr] = refModule;
         this.addDependency(refModule.resource);
@@ -47,7 +47,10 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
             outFile += `.${hashStr}`;
         }
         outFile += ext;
-        const outPath = query["raw"] ? outFile : undefined;
+        let outPath = (query["raw"] || query["async"]) ? outFile.concat("") : undefined;
+        if (query["async"]) {
+            outPath = outPath.replace(ext, `_dep${ext}`);
+        }
         if (assets[this.resourcePath] === undefined) {
             assets[this.resourcePath] = {
                 name,
@@ -58,6 +61,9 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
                 outFile,
                 query
             };
+        }
+        if (query["async"]) {
+            defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[outPath.replace(ext, "")] = this._module;
         }
 
         cb(undefined, `exports = module.exports = { default: "${name}", path: ${JSON.stringify(outPath)}, __esModule: true }`);
