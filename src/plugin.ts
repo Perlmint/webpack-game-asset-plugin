@@ -65,7 +65,6 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     public static loaderPath = localJoinPath(__dirname, "assetLoader.js");
 
     constructor(option: GameAssetPluginOption) {
-        this.newFileDependencies.push(option.entryOption);
         if (option.entryOption) {
             this.configFiles.push(option.entryOption);
         }
@@ -520,7 +519,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
         const fileByType: FilesByType = {};
         for (const cat of _.keys(groups)) {
             for (const file of groups[cat]) {
-                if (!_.includes(this.fileDependencies, file.srcFile)) {
+                if (!_.includes(this.newFileDependencies, file.srcFile)) {
                     this.newFileDependencies.push(file.srcFile);
                 }
 
