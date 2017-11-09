@@ -234,22 +234,31 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
     }
 
     private referencedModules: { [key: string]: wp.Module} = {};
+    private cachedAssets: { [key: string]: File[] } = {};
     private async generateListForModule(assetsForModule: { [key: string]: string[] }) {
         const compilation = this.compilation;
         _.forEach(this.referencedModules, (module: wp.Module, hash: string) => {
             assetsForModule[module.resource] = [];
             const assets: string[] = collectDependentAssets(this, module, assetsForModule, GameAssetPlugin.loaderPath);
-            const assetsInfo = _.filter(_.uniq(_.concat(
+            const assetsInfo: File[] = _.sortBy(_.filter(_.uniq(_.concat(
                 this.refAssetCache[module.resource],
                 assets.map(asset => this.assetCache[asset]),
-                _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], []))))));
+                _.flatten(assets.map(asset => _.defaultTo(this.refAssetCache[asset], [])))))), f => f.srcFile);
             const assetsJson: { [key: string]: { [key: string]: string[] } } = {};
+            let isChanged = !_.isEqual(this.cachedAssets[module.resource] || [], assetsInfo);
             for (const asset of assetsInfo) {
+                if (!isChanged && this.isChanged(asset.srcFile)) {
+                    isChanged = true;
+                }
                 if (assetsJson[asset.outType] === undefined) {
                     assetsJson[asset.outType] = {};
                 }
                 assetsJson[asset.outType][_.defaultTo(asset.outName, asset.name)] = typeof asset.outFile === "string" ? [asset.outFile] : asset.outFile;
             }
+            if (!isChanged) {
+                return;
+            }
+            this.cachedAssets[module.resource] = assetsInfo;
             const contentStr = JSON.stringify(assetsJson);
             compilation.assets[hash + ".json"] = {
                 size() {
