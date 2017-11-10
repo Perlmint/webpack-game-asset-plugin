@@ -23,17 +23,17 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
     const query: {[key: string]: string} = loaderUtils.getOptions(this) || {};
     const option: InternalOption = this._compilation.__game_asset_plugin_option__;
     if (query["info"]) {
+        this.cacheable();
         const refModule = _.find<any>(this._compilation._modules, m => m.resource === query["info"]);
-        const hash = createHash("md5");
-        hash.update(refModule.identifier() + collectDependentAssets(this._compilation, refModule, {[refModule.resource]: []}, __filename).join(";"));
-        const hashStr = hash.digest("hex") + ".assets";
-        defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[hashStr] = refModule;
+        const res_name = relative(this._compilation.compiler.context, refModule.resource);
+        defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[res_name] = refModule;
         this.addDependency(refModule.resource);
 
         return `module.exports = {
-    RESOURCE_CONFIG_URL: "${hashStr}.json"
+    RESOURCE_CONFIG_URL: "${res_name.replace(/\\/g, "/")}.json"
 }`;
     } else {
+        this.cacheable();
         const cb = this.async();
         const { path, ext, name } = getAssetInfo(this, this.resourcePath);
         const srcFile = localJoinPath(this._compiler.context, path);
