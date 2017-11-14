@@ -330,7 +330,7 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
     }).then(() => {
         $("body").append(`<span id="wait_script${hash}"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
         $("body").append(`<script id="loaderScript${hash}">
-let remainEntries${hash} = ${entrypoints.length};
+var remainEntries${hash} = ${entrypoints.length};
 function entryLoaded${hash}() {
     function removeNode(node) {
         if (node.remove) {
