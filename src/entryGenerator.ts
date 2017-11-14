@@ -1,16 +1,18 @@
-import { load } from "cheerio";
-import * as gm from "gm";
-import * as bb from "bluebird";
-import * as _ from "lodash";
-import { compile } from "dot";
-import { join, extname } from "path";
-import { readFileSync } from "fs";
-import { lookup } from "mime-types";
-import { tmpFile, readFileAsync, debug } from "./util";
 import * as CleanCSS from "clean-css";
-import { minify as minifyJS } from "uglify-js";
-import { minify as _minifyHTML } from "html-minifier";
+import * as _ from "lodash";
+import * as bb from "bluebird";
 import * as color from "onecolor";
+import * as gm from "gm";
+
+import { debug, readFileAsync, tmpFile } from "./util";
+import { extname, join } from "path";
+
+import { minify as _minifyHTML } from "html-minifier";
+import { compile } from "dot";
+import { load } from "cheerio";
+import { lookup } from "mime-types";
+import { minify as minifyJS } from "uglify-js";
+import { readFileSync } from "fs";
 
 /**
  * @hidden
