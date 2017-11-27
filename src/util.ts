@@ -1,15 +1,18 @@
-import * as bb from "bluebird";
-import { stat, readFile, Stats } from "fs";
-import { parse as parsePath, join as localJoinPath, posix, ParsedPath } from "path";
-import * as _debug from "debug";
 import * as _ from "lodash";
-import { createHash, Hash } from "crypto";
+import * as _debug from "debug";
+import * as bb from "bluebird";
+import * as xml2js from "xml2js";
+
+import { Hash, createHash } from "crypto";
+import { ParsedPath, join as localJoinPath, parse as parsePath, posix } from "path";
+import { Stats, readFile, stat } from "fs";
+
 import { Module } from "webpack";
 
 export { fileSync as tmpFile, SynchrounousResult, dirSync as tmpDir } from "tmp";
 export { createWriteStream } from "fs";
 export { isAbsolute, join as localJoinPath, parse as parsePath } from "path";
-import * as xml2js from "xml2js";
+
 export const [
     /**
      * @hidden
@@ -75,6 +78,7 @@ export function collectDependentAssets(
         if (dep.request === "webpack-game-asset-plugin/helper") {
             continue;
         }
+        const resOrContext = _.defaultTo(dep.module.resource, dep.module.context);
         // ignore other referenced module
         if (_.find(this.referencedModules, m => m.resource === dep.module.resource) !== undefined) {
             continue;
@@ -87,13 +91,13 @@ export function collectDependentAssets(
             }
         }
         // already cached!
-        else if (cache[dep.module.resource]) {
-            assets.push(...cache[dep.module.resource]);
+        else if (cache[resOrContext]) {
+            assets.push(...cache[resOrContext]);
         }
         // new normal module
         else {
-            cache[dep.module.resource] = [];
-            dependencies.push(..._.map(dep.module.dependencies, d => [d, [dep.module.resource, ...from]] as [any, string[]]));
+            cache[resOrContext] = [];
+            dependencies.push(..._.map(dep.module.dependencies, d => [d, [resOrContext, ...from]] as [any, string[]]));
         }
     }
 
