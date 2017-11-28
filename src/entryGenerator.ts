@@ -167,6 +167,10 @@ export interface EntryOption {
         image?: string;
     };
     /**
+     * external entry scripts - not generated from webpack
+     */
+    externalEntries?: string[];
+    /**
      * @hidden
      */
     _path: string;
@@ -330,9 +334,10 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
             resolve();
         }
     }).then(() => {
+        const externalEntriesCount = _.size(option.externalEntries);
         $("body").append(`<span id="wait_script${hash}"><h1>${option.title}</h1><br /><span>LOADING...</span></span>`);
         $("body").append(`<script id="loaderScript${hash}">
-var remainEntries${hash} = ${entrypoints.length};
+var remainEntries${hash} = ${entrypoints.length + externalEntriesCount};
 function entryLoaded${hash}() {
     function removeNode(node) {
         if (node.remove) {
@@ -347,6 +352,9 @@ function entryLoaded${hash}() {
     }
 }</script>`);
         $("body").append(`<script>__webpack_public_path__="${prefix}"</script>`);
+        for (const entry of _.defaultTo(option.externalEntries, [])) {
+            $("body").append(`<script src="${entry}" onload="entryLoaded${hash}()"></script>`);
+        }
         for (const entry of entrypoints) {
             $("body").append(`<script src="${prefix}${entry}" onload="entryLoaded${hash}()"></script>`);
         }
