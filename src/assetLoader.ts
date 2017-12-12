@@ -1,16 +1,18 @@
-import * as wp from "webpack";
-import { relative, extname, posix, normalize, parse } from "path";
-import { defaultsDeep, includes } from "lodash";
-import { Compilation, InternalOption } from "./option";
-import { localJoinPath, collectDependentAssets, getFileHash } from "./util";
-import * as loaderUtils from "loader-utils";
 import * as _ from "lodash";
+import * as loaderUtils from "loader-utils";
+import * as wp from "webpack";
+
+import { Compilation, InternalOption } from "./option";
+import { collectDependentAssets, getFileHash, localJoinPath } from "./util";
+import { defaultsDeep, includes } from "lodash";
+import { extname, normalize, parse, posix, relative } from "path";
+
 import { createHash } from "crypto";
 
 function getAssetInfo(context: wp.loader.LoaderContext, resourcePath: string) {
     const path = posix.normalize(relative(context._compiler.context, resourcePath)).replace(/\\/g, "/");
     const ext = extname(path);
-    const name = path.replace(ext, "");
+    const name = _.clone(path);
 
     return {
         path,
