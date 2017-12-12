@@ -44,7 +44,7 @@ async function getImageSize(path: string) {
 /**
  * @hidden
  */
-async function packImages(width: number, height: number, padding: number, tree: SourceTree<File & Size>) {
+async function packImages(width: number, height: number, padding: number, tree: SourceTree<File & Size>, priorSize: boolean) {
     let pack: Packer = new Packer(width, height, padding);
     let name: string[] = [];
     while (true) {
@@ -62,22 +62,46 @@ async function packImages(width: number, height: number, padding: number, tree: 
     }
 
     const queue: [SourceTree<File & Size>, string][] = [[tree, `sub.${name.join("/")}`]];
-    while (queue.length !== 0) {
-        const [node, name] = queue.pop();
-        if (node.dirs !== undefined) {
-            queue.push(..._.map(
-                node.dirs,
-                (o, k) => [o, `${name}.sub.${k}`] as [SourceTree<File & Size>, string]
-            ));
+    if (priorSize) {
+        let items: (File & Size)[] = [];
+        while (queue.length !== 0) {
+            const [node, name] = queue.pop();
+            if (node.dirs !== undefined) {
+                queue.push(..._.map(
+                    node.dirs,
+                    (o, k) => [o, `${name}.sub.${k}`] as [SourceTree<File & Size>, string]
+                ));
+            }
+            if (node.files !== undefined) {
+                // leaf node
+                items = items.concat(_.values(node.files));
+            }
         }
-        if (node.files !== undefined) {
-            // leaf node
-            let files = _.map(node.files, f => ({
-                data: f.srcFile,
-                width: f.width,
-                height: f.height
-            }));
-            pack.addArray(files);
+
+        items = _.reverse(_.sortBy(items, i => i.width * i.height));
+        pack.addArray(_.map(items, f => ({
+            data: f.srcFile,
+            width: f.width,
+            height: f.height
+        })));
+    } else {
+        while (queue.length !== 0) {
+            const [node, name] = queue.pop();
+            if (node.dirs !== undefined) {
+                queue.push(..._.map(
+                    node.dirs,
+                    (o, k) => [o, `${name}.sub.${k}`] as [SourceTree<File & Size>, string]
+                ));
+            }
+            if (node.files !== undefined) {
+                // leaf node
+                let files = _.map(node.files, f => ({
+                    data: f.srcFile,
+                    width: f.width,
+                    height: f.height
+                }));
+                pack.addArray(files);
+            }
         }
     }
 
@@ -165,7 +189,7 @@ export async function processImages(context: ProcessContext, option: InternalOpt
 
     const packs = await bb.all(_.map(
         groups,
-        group => packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, group)
+        (group, name) => packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, group, name !== "")
     ));
     const bins = _.reduce<Packer, Packer.Bin[]>(packs, (prev, pack) => prev.concat(pack.bins), []);
 
