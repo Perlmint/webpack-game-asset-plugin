@@ -452,7 +452,7 @@ export default class GameAssetPlugin implements wp.Plugin, ProcessContext {
                             const srcFile = localJoinPath(fileDir, ptr);
                             const outFile = localRelativePath(this.context, srcFile).replace(/\\/g, "/");
                             const ext = extname(outFile);
-                            const name = outFile.replace(ext, "");
+                            const name = _.clone(outFile);
                             parent[lastComponent] = name;
                             const hash = await getFileHash("md5", srcFile);
                             if (allFiles[srcFile] === undefined) {

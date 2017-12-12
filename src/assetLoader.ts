@@ -44,7 +44,7 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
         const hashStr = hash.digest("hex");
 
         const assets = defaultsDeep<any, Compilation>(this._compilation, { _game_asset_: {} })._game_asset_;
-        let outFile = name;
+        let outFile = name.replace(ext, "");
         if (option.addHashToAsset) {
             outFile += `.${hashStr}`;
         }
