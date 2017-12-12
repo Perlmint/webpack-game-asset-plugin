@@ -81,8 +81,7 @@ export type PackType = {
  * @hidden
  */
 export type AtlasMapType = {
-    excludes: string[];
-    pack: PackType[]
+    [group: string]: string[];
 };
 
 /**
@@ -109,7 +108,7 @@ export interface GameAssetPluginOption {
      *
      * [[AtlasGroupDefinition]] is passed, just use it as is.
      */
-    atlasMap?: string | AtlasGroupDefinition;
+    atlasMap?: string | AtlasMapType;
     /**
      * Roots where collect assets from
      *
@@ -319,57 +318,19 @@ export interface InternalOption {
 /**
  * @hidden
  */
-function sortAtlasMap(map: (string | string[])[]): AtlasMapType {
-    let idx = 1;
-    const indexMapped = _.reduce<string | string[], PackType[]>(map, (prev, item) => {
-        if (Array.isArray(item)) {
-            prev.push(..._.map<string, PackType>(
-                _.filter(item, i => _.find(prev, p => p.name === i) == null), i => ({
-                    name: i,
-                    group: idx
-                })));
-        } else if (_.find(prev, p => p.name === item) == null) {
-            prev.push({
-                name: item,
-                group: idx
-            });
-        }
-        idx++;
-        return prev;
-    }, [{
-        name: "",
-        group: 0
-    }]);
-    const excludes = indexMapped.filter(i => i.name[0] === "!").map(i => i.name);
-    _.remove(indexMapped, i => _.includes(excludes, i.name));
-    return {
-        excludes: excludes.map(v => v.substring(1)),
-        pack: _.orderBy(indexMapped, [i => i.name.length, i => i], ["desc", "asc"])
-    };
-}
-
-/**
- * @hidden
- */
 export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
-    let atlasMapFunc: (context: string) => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({
-        excludes: [],
-        pack: [
-            { name: "", group: 0 }
-        ]
-    });
+    let atlasMapFunc: (context: string) => bb<AtlasMapType> = () => bb.resolve<AtlasMapType>({});
     const atlasMap = pubOption.atlasMap;
     let atlasMapFile: string = undefined;
     if (typeof atlasMap === "string") {
         atlasMapFunc = (context: string) => readFileAsync(
             join(context, atlasMap)
         ).then(
-            buf => JSON.parse(buf.toString("utf-8")) as (string | string[])[]
-        ).then(sortAtlasMap);
+            buf => JSON.parse(buf.toString("utf-8")) as AtlasMapType
+        );
         atlasMapFile = atlasMap;
     } else if (atlasMap != null) {
-        const sorted = sortAtlasMap(atlasMap);
-        atlasMapFunc = () => bb.resolve(sorted);
+        atlasMapFunc = () => bb.resolve(atlasMap);
     }
     return {
         atlasMap: atlasMapFunc,

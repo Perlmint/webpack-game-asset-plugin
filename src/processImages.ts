@@ -1,12 +1,13 @@
 import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import { parse as parsePath, format as formatPath, dirname } from "path";
+import { parse as parsePath, format as formatPath, dirname, resolve as resolvePath } from "path";
 import { InternalOption, FilesByType, File, isFile, Assets, ProcessContext, AtlasMapType } from "./option";
 import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 import { createHash } from "crypto";
 import * as Packer from "maxrects-packer";
+import { sync as globSync } from "glob";
 
 /**
  * @hidden
@@ -95,19 +96,27 @@ export async function processImages(context: ProcessContext, option: InternalOpt
     assets["atlas"] = {};
     let idx = 0;
 
-    const map = await option.atlasMap(context.context);
+    const groupMap = await option.atlasMap(context.context);
+    const groupRevMap: {[path: string]: string} = {};
+    _.forEach(groupMap, (paths, groupName) => {
+        for (const path of paths) {
+            for (const found of globSync(path)) {
+                groupRevMap[resolvePath(found)] = groupName;
+            }
+        }
+    });
 
     debug("generate atlas");
 
-    const excludes = _.keys(images).filter(img => _.find(map.excludes, e => _.startsWith(img, e)));
+    const excludes = _.keys(images).filter(img => _.find(groupMap.excludes, e => _.startsWith(img, e)));
     for (const key of excludes) {
         toCopy["image"][key] = images[key];
         delete images[key];
     }
 
-    let sources: SourceTree<File & Size> = {};
     let binFileMap: {[key: string]: File} = {};
     let localizeds: {[language: string]: SourceTree<File & Size>} = {};
+    const groups: {[key: string]: SourceTree<File & Size>} = {};
     // make source image tree based on location
     await bb.all(_.map(images, async (file, key) => {
         // do not pack
@@ -141,18 +150,26 @@ export async function processImages(context: ProcessContext, option: InternalOpt
             return;
         }
 
-        let node: any[] = _.get(sources, path);
+        const group = _.defaultTo(file.query["group"], _.defaultTo(groupRevMap[file.srcFile], ""));
+        if (!groups[group]) {
+            groups[group] = {};
+        }
+        let node: any[] = _.get(groups[group], path);
         if (node === undefined) {
             node = [];
-            _.setWith(sources, path, node, Object);
+            _.setWith(groups[group], path, node, Object);
         }
         binFileMap[file.srcFile] = file;
         node.push(Object.assign(file, size));
     }));
 
-    const pack = await packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, sources);
+    const packs = await bb.all(_.map(
+        groups,
+        group => packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, group)
+    ));
+    const bins = _.reduce<Packer, Packer.Bin[]>(packs, (prev, pack) => prev.concat(pack.bins), []);
 
-    await bb.all(_.map(pack.bins, (bin, idx) => new bb(async (resolve, reject) => {
+    await bb.all(_.map(bins, (bin, idx) => new bb(async (resolve, reject) => {
         try {
             const outName = idx.toString(10);
 
