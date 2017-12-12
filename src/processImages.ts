@@ -187,10 +187,10 @@ export async function processImages(context: ProcessContext, option: InternalOpt
         node.push(Object.assign(file, size));
     }));
 
-    const packs = await bb.all(_.map(
-        groups,
-        (group, name) => packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, group, name !== "")
-    ));
+    const packs = await bb.map(
+        _.sortBy(_.toPairs(groups), g => g[0]),
+        group => packImages(option.atlasOption.width, option.atlasOption.height, option.atlasOption.padding, group[1], group[0] !== "")
+    );
     const bins = _.reduce<Packer, Packer.Bin[]>(packs, (prev, pack) => prev.concat(pack.bins), []);
 
     await bb.all(_.map(bins, (bin, idx) => new bb(async (resolve, reject) => {
