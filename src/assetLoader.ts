@@ -1,18 +1,20 @@
 import * as _ from "lodash";
 import * as loaderUtils from "loader-utils";
-import * as wp from "webpack";
+import * as it from "iter-tools";
 
 import { Compilation, InternalOption } from "./option";
-import { collectDependentAssets, getFileHash, localJoinPath } from "./util";
-import { defaultsDeep, includes } from "lodash";
-import { extname, normalize, parse, posix, relative } from "path";
+import { localJoinPath } from "./util";
+import { extname, posix, relative } from "path";
 
 import { createHash } from "crypto";
+import { isJavascriptModule, markModuleAsAsset, PluginWarning } from "./webpack_util";
+import { LoaderContext } from "loader-utils";
+import { NormalModule } from "webpack";
 
-function getAssetInfo(context: wp.loader.LoaderContext, resourcePath: string) {
-    const path = posix.normalize(relative(context._compiler.context, resourcePath)).replace(/\\/g, "/");
+function getAssetInfo(context: LoaderContext, resourcePath: string) {
+    const path = posix.normalize(relative(context._compiler.context, resourcePath).replace(/\\/g, "/"));
     const ext = extname(path);
-    const name = _.clone(path);
+    const name = path;
 
     return {
         path,
@@ -21,14 +23,17 @@ function getAssetInfo(context: wp.loader.LoaderContext, resourcePath: string) {
     };
 }
 
-export default function(this: wp.loader.LoaderContext, content: Buffer) {
+export default function(this: LoaderContext, content: Buffer) {
+    const compilation = this._compilation as Compilation;
     const query: {[key: string]: string} = loaderUtils.getOptions(this) || {};
-    const option: InternalOption = this._compilation.__game_asset_plugin_option__;
+    const option: InternalOption = compilation.__game_asset_plugin_option__;
+    const module = this._module;
+
     if (query["info"]) {
         this.cacheable();
-        const refModule = _.find<any>(this._compilation._modules, m => m.resource === query["info"]);
-        const res_name = relative(this._compilation.compiler.context, refModule.resource);
-        defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[res_name] = refModule;
+        const refModule = it.find((m) => isJavascriptModule(m) && m.resource === query["info"], this._compilation.modules.values()) as NormalModule;
+        const res_name = relative(this._compiler.context, refModule.resource);
+        compilation._referenced_modules_.set(res_name, refModule);
         this.addDependency(refModule.resource);
 
         return `module.exports = {
@@ -36,6 +41,7 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
 }`;
     } else {
         this.cacheable();
+        markModuleAsAsset(module);
         const cb = this.async();
         const { path, ext, name } = getAssetInfo(this, this.resourcePath);
         const srcFile = localJoinPath(this._compiler.context, path);
@@ -43,18 +49,14 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
         hash.update(content);
         const hashStr = hash.digest("hex");
 
-        const assets = defaultsDeep<any, Compilation>(this._compilation, { _game_asset_: {} })._game_asset_;
+        const assets = compilation._game_asset_;
         let outFile = name.replace(ext, "");
         if (option.addHashToAsset) {
             outFile += `.${hashStr}`;
         }
         outFile += ext;
-        let outPath = (query["raw"] || query["async"]) ? outFile.concat("") : undefined;
-        if (query["async"]) {
-            outPath = outPath.replace(ext, `_dep${ext}`);
-        }
-        if (assets[this.resourcePath] === undefined) {
-            assets[this.resourcePath] = {
+        if (!assets.has(this.resourcePath)) {
+            assets.set(this.resourcePath, {
                 name,
                 ext: ext,
                 srcFile,
@@ -62,13 +64,17 @@ export default function(this: wp.loader.LoaderContext, content: Buffer) {
                 hash: hashStr,
                 outFile,
                 query
-            };
+            });
         }
         if (query["async"]) {
-            defaultsDeep<any, Compilation>(this._compilation, { _referenced_modules_: {} })._referenced_modules_[outPath.replace(ext, "")] = this._module;
+            if (!isJavascriptModule(module)) {
+                // this._module.addWarning(new PluginWarning(module, "", undefined));
+            } else {
+                compilation._referenced_modules_.set(outFile.replace(ext, ""), module);
+            }
         }
 
-        cb(undefined, `exports = module.exports = { default: "${name}", path: ${JSON.stringify(outPath)}, __esModule: true }`);
+        cb(undefined, `exports = module.exports = { default: "${name}", path: ${JSON.stringify(outFile)}, __esModule: true }`);
     }
 }
 

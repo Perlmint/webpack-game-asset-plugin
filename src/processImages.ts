@@ -2,8 +2,8 @@ import * as wp from "webpack";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import { parse as parsePath, format as formatPath, dirname, resolve as resolvePath } from "path";
-import { InternalOption, FilesByType, File, isFile, Assets, ProcessContext, AtlasMapType } from "./option";
-import { localJoinPath, tmpFile, SynchrounousResult, readFileAsync, debug } from "./util";
+import { InternalOption, FilesByType, File, isFile, Assets, ProcessContext, AtlasMapType, Compilation } from "./option";
+import { localJoinPath, debug } from "./util";
 import { stylesheet } from "./stylesheet";
 import { createHash } from "crypto";
 import * as Packer from "maxrects-packer";
@@ -111,7 +111,7 @@ async function packImages(width: number, height: number, padding: number, tree: 
 /**
  * @hidden
  */
-export async function processImages(context: ProcessContext, option: InternalOption, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
+export async function processImages(context: ProcessContext, compilation: Compilation, option: InternalOption, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     const images = toCopy["image"];
@@ -261,15 +261,9 @@ export async function processImages(context: ProcessContext, option: InternalOpt
                 const hash = createHash("md5");
                 hash.update(buffer);
                 hashStr = hash.digest("hex");
-                context.compilation.assets[outName + ".png"] = {
-                    size: () => buffer.length,
-                    source: () => buffer
-                };
+                compilation.emitAsset(outName + ".png", new wp.sources.RawSource(buffer, false));
                 const frameInfoStr = JSON.stringify(frameInfo);
-                context.compilation.assets[outName + ".json"] = {
-                    size: () => frameInfoStr.length,
-                    source: () => frameInfoStr
-                };
+                compilation.emitAsset(outName + ".json", new wp.sources.RawSource(frameInfoStr, true));
                 assets["atlas"][outName] = {
                     ext: ".png",
                     name: outName,

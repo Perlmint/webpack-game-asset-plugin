@@ -29,39 +29,46 @@
     "@types/gm": "^1.17.30",
     "@types/html-minifier": "^1.1.30",
     "@types/jsonpath": "^0.1.29",
-    "@types/loader-utils": "^1.1.0",
     "@types/lodash": "^4.14.64",
     "@types/mime-types": "^2.1.0",
     "@types/node-sprite-generator": "^0.10.0",
     "@types/stream-buffers": "^3.0.2",
-    "@types/tmp": "0.0.33",
+    "@types/tmp": "^0.2.0",
     "@types/uglify-js": "^2.6.29",
     "@types/uuid": "^3.0.0",
     "@types/webfontloader": "^1.6.28",
-    "@types/webpack": "^2.2.12",
     "@types/xml2js": "^0.4.0",
     "tslint": "^5.5.0",
     "typedoc": "^0.8.0",
-    "typescript": "^2.4.1"
+    "typescript": "^4",
+    "webpack": "^5.21.2"
   },
   "dependencies": {
+    "audiosprite": "^0.6.0",
+    "bitmapfont": "^0.1.0",
     "bluebird": "^3.5.0",
     "cheerio": "^0.22.0",
     "clean-css": "^4.1.4",
     "debug": "^2.6.8",
     "dot": "^1.1.2",
     "es6-shim": "^0.35.3",
+    "fluent-ffmpeg": "^2.1.2",
     "glob": "^7.1.2",
+    "gm": "^1.23.0",
     "html-minifier": "^3.5.2",
+    "iter-tools": "^7.0.2",
     "jsonpath": "^0.2.11",
-    "loader-utils": "^1.1.0",
+    "loader-utils": "^2",
     "lodash": "^4.17.4",
     "maxrects-packer": "^1.2.0",
     "mime-types": "^2.1.15",
-    "onecolor": "^3.0.4",
-    "tmp": "0.0.31",
+    "onecolor": "^3.1",
+    "stream-buffers": "^3.0.1",
+    "tmp-promise": "^3.0.2",
     "uglify-js": "^3.0.20",
-    "xml-writer": "^1.7.0"
+    "webpack-virtual-modules": "^0.4.2",
+    "xml-writer": "^1.7.0",
+    "xml2js": "^0.4.17"
   },
   "optionalDependencies": {
     "audiosprite": "^0.6.0",
@@ -72,6 +79,6 @@
     "xml2js": "^0.4.17"
   },
   "peerDependencies": {
-    "webpack": ">=2.4"
+    "webpack": "^5.21.2"
   }
 }

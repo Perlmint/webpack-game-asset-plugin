@@ -1,15 +1,16 @@
 import * as bb from "bluebird";
 import * as _ from "lodash";
+import * as wp from "webpack";
 import { Readable } from "stream";
 import { extname, dirname, join, basename } from "path";
-import { FilesByType, Assets, File, isBitmap, Fonts, BitmapFontConf, ProcessContext } from "./option";
+import { FilesByType, Assets, File, isBitmap, Fonts, BitmapFontConf, ProcessContext, Compilation } from "./option";
 import { debug, readFileAsync, parseXMLString } from "./util";
 import { createInterface } from "readline";
 
 /**
  * @hidden
  */
-async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, conf: BitmapFontConf) {
+async function renderBitmapFont(key: string, name: string, assets: Assets, context: ProcessContext, compilation: Compilation, conf: BitmapFontConf) {
     debug(`[bitmap font - render] ${key}`);
     const { BitmapFont, Canvas, ImageFormat } = await import("bitmapfont");
     const Packer = await import("maxrects-packer");
@@ -112,23 +113,17 @@ ${JSON.stringify(conf)}`);
                 .endElement();
         }
         const imageBlob = canvas.blob(ImageFormat.PNG);
-        context.compilation.assets[`${key}_${idx}.png`] = {
-            size: () => imageBlob.length,
-            source: () => imageBlob
-        };
+        compilation.emitAsset(`${key}_${idx}.png`, new wp.sources.RawSource(imageBlob, false));
     }
     writer.endDocument();
     const fntInfoBuffer = new Buffer(writer.toString(), "utf-8");
-    context.compilation.assets[fontInfoName] = {
-        size: () => fntInfoBuffer.length,
-        source: () => fntInfoBuffer
-    };
+    compilation.emitAsset(fontInfoName, new wp.sources.RawSource(fntInfoBuffer, true));
 }
 
 /**
  * @hidden
  */
-async function modifyBitmapFontXML(key: string, name: string, assets: Assets, context: ProcessContext, buf: Buffer) {
+async function modifyBitmapFontXML(key: string, name: string, assets: Assets, compilation: Compilation, buf: Buffer) {
     let imageName: string;
     try {
         const xml2js = await import("xml2js");
@@ -139,10 +134,7 @@ async function modifyBitmapFontXML(key: string, name: string, assets: Assets, co
         const fntString = new xml2js.Builder({
             trim: true
         }).buildObject(xml);
-        context.compilation.assets[name + ".fnt"] = {
-            size: () => fntString.length,
-            source: () => fntString
-        };
+        compilation.emitAsset(name + ".fnt", new wp.sources.RawSource(fntString, true));
         debug(`[bitmap font - xml] ${key}`);
     }
     catch (e) {
@@ -154,7 +146,7 @@ async function modifyBitmapFontXML(key: string, name: string, assets: Assets, co
 /**
  * @hidden
  */
-async function modifyBitmapFontText(key: string, name: string, assets: Assets, context: ProcessContext, stream: Readable) {
+async function modifyBitmapFontText(key: string, name: string, assets: Assets, compilation: Compilation, stream: Readable) {
     return new bb<string>(resolve => {
         const rl = createInterface(stream);
         let imageName: string;
@@ -178,10 +170,7 @@ async function modifyBitmapFontText(key: string, name: string, assets: Assets, c
             }
             debug(`[bitmap font - text] ${key}`);
             const atlas = lines.join("\n");
-            context.compilation.assets[name + ".fnt"] = {
-                size: () => atlas.length,
-                source: () => atlas
-            };
+            compilation.emitAsset(name + ".fnt", new wp.sources.RawSource(atlas, false));
             resolve(imageName);
         });
     });
@@ -190,7 +179,7 @@ async function modifyBitmapFontText(key: string, name: string, assets: Assets, c
 /**
  * @hidden
  */
-export async function processFonts(context: ProcessContext, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
+export async function processFonts(context: ProcessContext, compilation: Compilation, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
 
     const fonts = toCopy["font"];
@@ -207,7 +196,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
         }
         const buf = await readFileAsync(conf.srcFile);
         // bitmap font
-        let imageName = await modifyBitmapFontXML(key, name, assets, context, buf);
+        let imageName = await modifyBitmapFontXML(key, name, assets, compilation, buf);
         let bufferString: string = undefined;
         let isText = false;
         if (imageName === null) {
@@ -224,7 +213,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     json = JSON.parse(bufferString);
                     isText = false;
                     if (isBitmap(json)) {
-                        await renderBitmapFont(key, name, assets, context, json);
+                        await renderBitmapFont(key, name, assets, context, compilation, json);
                     }
                     else {
                         // webfont
@@ -235,7 +224,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                     }
                 }
                 catch (e) {
-                    context.compilation.warnings.push(e.toString());
+                    compilation.warnings.push(e.toString());
                 }
             }
         }
@@ -244,7 +233,7 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                 const { ReadableStreamBuffer } = await import("stream-buffers");
                 const stream = new ReadableStreamBuffer();
                 stream.put(bufferString);
-                imageName = await modifyBitmapFontText(key, name, assets, context, stream);
+                imageName = await modifyBitmapFontText(key, name, assets, compilation, stream);
                 stream.stop();
             }
             if (imageName === null) {
@@ -257,11 +246,8 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
                         }
                     }
                 });
-                if (context.isChanged(conf.srcFile)) {
-                    context.compilation.assets[name + ".css"] = {
-                        size: () => bufferString.length,
-                        source: () => bufferString
-                    };
+                if (context.isChanged(compilation, conf.srcFile)) {
+                    compilation.emitAsset(name + ".css", new wp.sources.RawSource(bufferString));
                 }
             }
         }
@@ -272,12 +258,9 @@ export async function processFonts(context: ProcessContext, files: [FilesByType,
             _.set(assets, ["bitmapFont", key], {
                 args: [name + imgExt, name + ".fnt"]
             });
-            if (context.isChanged(imgPath)) {
+            if (context.isChanged(compilation, imgPath)) {
                 const img = await readFileAsync(imgPath);
-                context.compilation.assets[name + imgExt] = {
-                    size: () => img.length,
-                    source: () => img
-                };
+                compilation.emitAsset(name + imgExt, new wp.sources.RawSource(img));
             }
         }
     }

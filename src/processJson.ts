@@ -1,21 +1,21 @@
 import * as bb from "bluebird";
 import * as _ from "lodash";
-import { fromPairs, clone, keys } from "lodash";
-import { join } from "path";
+import * as wp from "webpack";
+import { fromPairs } from "lodash";
 import { readFileAsync } from "./util";
-import { FilesByType, Assets, ProcessContext } from "./option";
+import { FilesByType, Assets, ProcessContext, Compilation } from "./option";
 import { createHash } from "crypto";
 
 /**
  * @hidden
  */
-export async function processJson(context: ProcessContext, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
+export async function processJson(context: ProcessContext, compilation: Compilation, files: [FilesByType, Assets]): Promise<[FilesByType, Assets]> {
     const [toCopy, assets] = files;
     const jsonFiles = toCopy["json"];
     delete toCopy["json"];
     delete assets["json"];
 
-    if (!_.some(_.values(jsonFiles), file => context.isChanged(file.srcFile))) {
+    if (!_.some(_.values(jsonFiles), file => context.isChanged(compilation, file.srcFile))) {
         return [toCopy, assets];
     }
 
@@ -65,10 +65,7 @@ export async function processJson(context: ProcessContext, files: [FilesByType, 
         }
         const merged = await fromPairs(data);
         const stringified = JSON.stringify(merged);
-        context.compilation.assets[filename] = {
-            size: () => stringified.length,
-            source: () => stringified
-        };
+        compilation.emitAsset(filename, new wp.sources.RawSource(stringified, true));
     }));
 
     return [toCopy, assets];

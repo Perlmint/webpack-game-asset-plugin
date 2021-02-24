@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es5",
+        "target": "es6",
         "allowJs": false,
         "removeComments": false,
         "noImplicitAny": true,
@@ -11,7 +11,7 @@
         "types": [
             "bluebird-global"
         ],
-        "outDir": "../"
+        "outDir": ".."
     },
     "exclude": [
         "../node_modules",
@@ -23,6 +23,7 @@
         "../*.d.ts"
     ],
     "include": [
-        "./*.ts"
+        "./*.ts",
+        "../loader.d.ts"
     ]
 }

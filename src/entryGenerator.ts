@@ -3,8 +3,9 @@ import * as _ from "lodash";
 import * as bb from "bluebird";
 import * as color from "onecolor";
 import * as gm from "gm";
+import { fileSync as tmpFile } from "tmp-promise";
 
-import { debug, readFileAsync, tmpFile } from "./util";
+import { debug, readFileAsync } from "./util";
 import { extname, join } from "path";
 
 import { minify as _minifyHTML } from "html-minifier";
@@ -29,7 +30,7 @@ function minifyHTML(html: string) {
  * @hidden
  */
 function templateLoader(filename: string) {
-    return readFileSync(join(__dirname, "template/", filename), "utf-8");
+    return readFileSync(join(__dirname, "template", filename), "utf-8");
 }
 
 const [
@@ -286,7 +287,7 @@ export function generateEntry(prefix: string, entrypoints: string[], hash: strin
             const res = _.sortedUniq(_.sortBy(_.concat(_.keys(android), _.keys(ios))));
             icon.identify((error, info) => {
                 const possible = _.filter(res, r => parseInt(r) <= info.size.width);
-                return bb.map(possible, size => new bb<[string, Buffer]>((resolve, reject) => {
+                return bb.map(possible, size => new bb<[string, Buffer]>(async (resolve, reject) => {
                     const tmp = tmpFile({
                         discardDescriptor: true
                     });

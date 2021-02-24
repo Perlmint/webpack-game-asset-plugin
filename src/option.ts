@@ -2,7 +2,7 @@ import * as nsg from "node-sprite-generator";
 import * as bb from "bluebird";
 import * as _ from "lodash";
 import * as wp from "webpack";
-import { join } from "path";
+import { join, isAbsolute } from "path";
 import { Fontdeck, Google, Monotype, Typekit, Custom as CustomWebFont } from "webfontloader";
 import { readFileAsync } from "./util";
 import { EntryOption } from "./entryGenerator";
@@ -48,12 +48,9 @@ export interface Module {
  * @hidden
  */
 export type Compilation = wp.Compilation & {
-    _game_asset_: {
-        [key: string]: File
-    };
-    _referenced_modules_: {
-        [key: string]: wp.Module
-    };
+    _game_asset_: Map<string, File>;
+    _referenced_modules_: Map<string, wp.NormalModule>;
+    __game_asset_plugin_option__: InternalOption,
 };
 
 /**
@@ -96,6 +93,7 @@ export type AtlasMapType = {
 export type AtlasGroupDefinition = (string | string[])[];
 
 export interface GameAssetPluginOption {
+    entry: string | string[],
     /**
      * whether make sprite atls
      * @default false
@@ -360,7 +358,7 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
         },
         entryOption(context: string) {
             return readFileAsync(
-                join(context, pubOption.entryOption)
+                isAbsolute(pubOption.entryOption) ? pubOption.entryOption : join(context, pubOption.entryOption)
             ).then(
                 buf => _.assign(JSON.parse(buf.toString("utf-8")), { _path: pubOption.entryOption })
             );
@@ -380,11 +378,10 @@ export function publicOptionToprivate(pubOption: GameAssetPluginOption) {
  * @hidden
  */
 export interface ProcessContext {
-    compilation: wp.Compilation;
     context: string;
     cache: { [key: string]: any };
     option: InternalOption;
 
-    isChanged(file: string): boolean;
+    isChanged(compilation: Compilation, file: string): Promise<boolean>;
     toAbsPath(path: string): string;
 }

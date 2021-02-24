@@ -1,15 +1,17 @@
 import * as _ from "lodash";
+import * as it from "iter-tools";
 import * as _debug from "debug";
 import * as bb from "bluebird";
 import * as xml2js from "xml2js";
+import * as wp from "webpack";
 
 import { Hash, createHash } from "crypto";
 import { ParsedPath, join as localJoinPath, parse as parsePath, posix } from "path";
 import { Stats, readFile, stat } from "fs";
 
-import { Module } from "webpack";
+import { Dependency, NormalModule } from "webpack";
+import { isJavascriptModule } from "./webpack_util";
 
-export { fileSync as tmpFile, SynchrounousResult, dirSync as tmpDir } from "tmp";
 export { createWriteStream } from "fs";
 export { isAbsolute, join as localJoinPath, parse as parsePath } from "path";
 
@@ -58,47 +60,47 @@ export const [
 ];
 
 export function collectDependentAssets(
-    context: {
-        referencedModules: { [key: string]: Module}
-    },
-    module: Module,
-    cache: { [key: string]: string[]},
+    compilation: wp.Compilation,
+    referencedModules: Map<string, NormalModule>,
+    module: NormalModule,
+    cache: Map<string, string[]>,
     loaderPath: string
 ) {
-    const dependencies: [any, string[]][] = _.map(module.dependencies, dep => [dep, [module.resource]] as [any, string[]]);
+    const dependencies = _.map(module.dependencies, dep => [dep, [module.resource]] as [Dependency, string[]]);
     const assets: string[] = [];
     const assetDeps: {[key: string]: string[]} = {};
     while (dependencies.length !== 0) {
         const [dep, from] = dependencies.shift();
+        const dep_module = compilation.moduleGraph.getModule(dep);
         // ignore null module
-        if (dep.module == null) {
+        if (dep_module == null) {
             continue;
         }
         // ignore helper
-        if (dep.request === "webpack-game-asset-plugin/helper") {
+        if (!isJavascriptModule(dep_module)) {
             continue;
         }
-        const resOrContext = _.defaultTo(dep.module.resource, dep.module.context);
+        const module_id = dep_module.resource;
         // ignore other referenced module
-        if (_.find(context.referencedModules, m => m.resource === dep.module.resource) !== undefined) {
-            debug("---", dep.module.resource);
+        if (it.find(m => m.identifier() === dep_module.resource, referencedModules.values()) !== undefined) {
+            debug("---", dep_module.resource);
             continue;
         }
         // depedency is asset
-        if (_.some(dep.module.loaders, l => l.loader === loaderPath)) {
-            assets.push(dep.module.resource);
+        if (_.some(dep_module.loaders, l => l.loader === loaderPath)) {
+            assets.push(dep_module.resource);
             for (const f of from) {
-                cache[f].push(dep.module.resource);
+                cache.get(f).push(dep_module.resource);
             }
         }
         // already cached!
-        else if (cache[resOrContext]) {
-            assets.push(...cache[resOrContext]);
+        else if (cache.has(module_id)) {
+            assets.push(...cache.get(module_id));
         }
         // new normal module
         else {
-            cache[resOrContext] = [];
-            dependencies.push(..._.map(dep.module.dependencies, d => [d, [resOrContext, ...from]] as [any, string[]]));
+            cache.set(module_id, []);
+            dependencies.push(..._.map(dep_module.dependencies, d => [d, [module_id, ...from]] as [any, string[]]));
         }
     }
 
